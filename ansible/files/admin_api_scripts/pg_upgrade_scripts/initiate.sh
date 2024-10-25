@@ -416,7 +416,21 @@ function initiate_upgrade {
     rm -rf "${PGDATANEW:?}/"
 
     if [ "$IS_NIX_UPGRADE" = "true" ]; then
-        LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $PGBINNEW/initdb --encoding=$SERVER_ENCODING --lc-collate=$SERVER_LC_COLLATE --lc-ctype=$SERVER_LC_CTYPE -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
+        LC_ALL=en_US.UTF-8 \
+        LC_CTYPE=$SERVER_LC_CTYPE \
+        LC_COLLATE=$SERVER_LC_COLLATE \
+        LANGUAGE=en_US.UTF-8 \
+        LANG=en_US.UTF-8 \
+        LOCALE_ARCHIVE=/usr/lib/locale/locale-archive \
+        su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
+        && $PGBINNEW/initdb \
+           --encoding=$SERVER_ENCODING \
+           --lc-collate=$SERVER_LC_COLLATE \
+           --lc-ctype=$SERVER_LC_CTYPE \
+           -L $PGSHARENEW \
+           -D $PGDATANEW/ \
+           --username=supabase_admin" \
+           -s "$SHELL" postgres
     else
         su -c "$PGBINNEW/initdb -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
     fi
@@ -449,7 +463,13 @@ EOF
     if [ "$IS_NIX_BASED_SYSTEM" = "true" ]; then
         UPGRADE_COMMAND=". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $UPGRADE_COMMAND"
     fi 
-    LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND --check" -s "$SHELL" postgres
+    LC_ALL=en_US.UTF-8 \
+    LC_CTYPE=$SERVER_LC_CTYPE \
+    LC_COLLATE=$SERVER_LC_COLLATE \
+    LANGUAGE=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LOCALE_ARCHIVE=/usr/lib/locale/locale-archive \
+    su -pc "$UPGRADE_COMMAND --check" -s "$SHELL" postgres
 
     echo "10. Stopping postgres; running pg_upgrade"
     # Extra work to ensure postgres is actually stopped
@@ -465,7 +485,13 @@ EOF
         CI_stop_postgres
     fi
 
-    LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND" -s "$SHELL" postgres
+    LC_ALL=en_US.UTF-8 \
+    LC_CTYPE=$SERVER_LC_CTYPE \
+    LC_COLLATE=$SERVER_LC_COLLATE \
+    LANGUAGE=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LOCALE_ARCHIVE=/usr/lib/locale/locale-archive \
+    su -pc "$UPGRADE_COMMAND" -s "$SHELL" postgres
 
     # copying custom configurations
     echo "11. Copying custom configurations"
