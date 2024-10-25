@@ -154,7 +154,11 @@
             x != ./nix/ext/pgvector.nix &&
             x != ./nix/ext/plv8.nix && 
             x != ./nix/ext/postgis.nix && 
-            x != ./nix/ext/pgrouting.nix 
+            x != ./nix/ext/pgrouting.nix &&
+            x != ./nix/ext/pg_jsonschema.nix &&
+            x != ./nix/ext/pg_graphql.nix &&
+            x != ./nix/ext/rum.nix &&
+            x != ./nix/ext/wal2json.nix 
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
@@ -466,7 +470,7 @@
                 --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}' \
                 --subst-var-by 'PSQL15_BINDIR' '${basePackages.psql_15.bin}' \
                 --subst-var-by 'PSQL16_BINDIR' '${basePackages.psql_16.bin}' \
-                --subst-var-by 'PSQLORIOLEDB16_BINDIR' '${basePackages.psql_orioledb-16.bin}' \
+                --subst-var-by 'PSQLORIOLEDB17_BINDIR' '${basePackages.psql_orioledb-17.bin}' \
                 --subst-var-by 'MIGRATIONS_DIR' '${migrationsDir}' \
                 --subst-var-by 'POSTGRESQL_SCHEMA_SQL' '${postgresqlSchemaSql}' \
                 --subst-var-by 'PGBOUNCER_AUTH_SCHEMA_SQL' '${pgbouncerAuthSchemaSql}' \

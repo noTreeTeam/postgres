@@ -51,7 +51,7 @@ let
     inherit version;
     pname = pname + lib.optionalString jitSupport "-jit";
 
-    src = if (builtins.match "17_*" version != null) then
+    src = if (builtins.match "[0-9][0-9]_.*" version != null) then
       fetchurl {
         url = "https://github.com/orioledb/postgres/archive/refs/tags/patches${version}.tar.gz";
         inherit hash;
@@ -64,7 +64,7 @@ let
 
     hardeningEnable = lib.optionals (!stdenv'.cc.isClang) [ "pie" ];
 
-    outputs = [ "out" "lib" "doc" "man" ];
+    outputs = [ "out" "lib" ];
     setOutputFlags = false; # $out retains configureFlags :-/
 
     buildInputs = [
@@ -83,7 +83,7 @@ let
       ++ lib.optionals gssSupport [ libkrb5 ]
       ++ lib.optionals stdenv'.isLinux [ linux-pam ]
       ++ lib.optionals (!stdenv'.isDarwin) [ libossp_uuid ]
-      ++ lib.optionals (builtins.match "16_.*" version != null) [ 
+      ++ lib.optionals (builtins.match "[0-9][0-9]_.*" version != null) [ 
         perl bison flex docbook_xsl docbook_xml_dtd_45 docbook_xsl_ns libxslt
       ];
 
@@ -97,7 +97,7 @@ let
 
     separateDebugInfo = true;
 
-    buildFlags = [ "world" ];
+    buildFlags = [ "world-bin" ];
 
     # Makes cross-compiling work when xml2-config can't be executed on the host.
     # Fixed upstream in https://github.com/postgres/postgres/commit/0bc8cebdb889368abdf224aeac8bc197fe4c9ae6
@@ -138,7 +138,7 @@ let
       (if atLeast "13" then ./patches/socketdir-in-run-13+.patch else ./patches/socketdir-in-run.patch)
     ];
 
-    installTargets = [ "install-world" ];
+    installTargets = [ "install-world-bin" ];
 
     postPatch = ''
       # Hardcode the path to pgxs so pg_config returns the path in $out
@@ -288,7 +288,7 @@ let
     paths = f pkgs ++ [
         postgresql
         postgresql.lib
-        postgresql.man   # in case user installs this into environment
+        #TODO RM postgresql.man   # in case user installs this into environment
     ];
     nativeBuildInputs = [ makeWrapper ];
 

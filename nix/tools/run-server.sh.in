@@ -68,6 +68,8 @@ remove_config_items() {
     if [ "$1" == "orioledb-17" ]; then
         # Remove items from postgresql.conf
         sed -i 's/ timescaledb,//g;' "$DATDIR/postgresql.conf"
+        #as of pg 16.4 + this db_user_namespace totally deprecated and will break the server if setting is present
+        sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
         sed -i 's/ timescaledb,//g; s/ vector,//g; s/ plv8,//g; s/ postgis,//g; s/ pgrouting,//g' "$DATDIR/supautils.conf"
     fi
 }
