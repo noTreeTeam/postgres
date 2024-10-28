@@ -4,6 +4,11 @@ stdenv.mkDerivation rec {
   pname = "pg_partman";
   version = "5.1.0";
 
+  patches = [
+    # Allow installing without superuser
+    ./allow-installing-without-superuser.patch
+  ];
+
   buildInputs = [ postgresql ];
 
   src = fetchFromGitHub {

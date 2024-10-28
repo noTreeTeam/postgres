@@ -1,0 +1,48 @@
+diff --git a/pg_partman.control b/pg_partman.control
+index 1409f6a..40238fe 100644
+--- a/pg_partman.control
++++ b/pg_partman.control
+@@ -1,3 +1,4 @@
+ default_version = '5.1.0'
+ comment = 'Extension to manage partitioned tables by time or ID'
+ relocatable = false
++superuser = false
+diff --git a/updates/pg_partman--4.6.0--4.6.1.sql b/updates/pg_partman--4.6.0--4.6.1.sql
+index ad79791..bf647d7 100644
+--- a/updates/pg_partman--4.6.0--4.6.1.sql
++++ b/updates/pg_partman--4.6.0--4.6.1.sql
+@@ -5498,7 +5498,7 @@ $$;
+ 
+ 
+ CREATE OR REPLACE FUNCTION @extschema@.check_epoch_type (p_type text) RETURNS boolean
+-    LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
++    LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER
+     SET search_path TO pg_catalog, pg_temp
+     AS $$
+ DECLARE
+diff --git a/updates/pg_partman--4.8.0--5.0.0.sql b/updates/pg_partman--4.8.0--5.0.0.sql
+index b4cfbef..b1b7765 100644
+--- a/updates/pg_partman--4.8.0--5.0.0.sql
++++ b/updates/pg_partman--4.8.0--5.0.0.sql
+@@ -790,7 +790,7 @@ CREATE OR REPLACE FUNCTION @extschema@.check_name_length (
+     , p_table_partition boolean DEFAULT FALSE
+ )
+     RETURNS text
+-    LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
++    LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER
+     SET search_path TO pg_catalog, pg_temp
+     AS $$
+ DECLARE
+diff --git a/updates/pg_partman--5.0.1--5.1.0.sql b/updates/pg_partman--5.0.1--5.1.0.sql
+index e48791e..6e5e0cc 100644
+--- a/updates/pg_partman--5.0.1--5.1.0.sql
++++ b/updates/pg_partman--5.0.1--5.1.0.sql
+@@ -2696,7 +2696,7 @@ $$;
+ 
+ 
+ CREATE OR REPLACE FUNCTION @extschema@.check_partition_type (p_type text) RETURNS boolean
+-    LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER
++    LANGUAGE plpgsql IMMUTABLE SECURITY INVOKER
+     SET search_path TO pg_catalog, pg_temp
+     AS $$
+ DECLARE
