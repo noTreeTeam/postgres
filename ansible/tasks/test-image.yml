@@ -57,11 +57,6 @@
     LOCALE_ARCHIVE: /usr/lib/locale/locale-archive
   when: stage2_nix
 
-- name: Run Unit tests (with filename unit-test-*) on Postgres Database
-  shell: /usr/bin/pg_prove -U postgres -h localhost -d postgres -v /tmp/unit-tests/unit-test-*.sql
-  register: retval
-  failed_when: retval.rc != 0
-  when: debpkg_mode or stage2_nix
 
 - name: Check psql_version and modify migrations if oriole-xx
   block:
@@ -95,7 +90,19 @@
       loop: "{{ files_to_remove.files }}"
       when: is_psql_oriole
       become: yes
-
+  
+    - name: Remove specified extensions from SQL file
+      ansible.builtin.command:
+        cmd: >
+          sed -i "/'pg_graphql',/d" /tmp/unit-tests/unit-test-01.sql
+      when: is_psql_oriole
+      become: yes
+      
+- name: Run Unit tests (with filename unit-test-*) on Postgres Database
+  shell: /usr/bin/pg_prove -U postgres -h localhost -d postgres -v /tmp/unit-tests/unit-test-*.sql
+  register: retval
+  failed_when: retval.rc != 0
+  when: debpkg_mode or stage2_nix
 
 - name: Run migrations tests
   shell: /usr/bin/pg_prove -U supabase_admin -h localhost -d postgres -v tests/test.sql
