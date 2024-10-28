@@ -80,6 +80,10 @@
           - '*pgrouting*.sql'
           - '*plv8*.sql'
           - '*pgvector*.sql'
+          - '*wal2json*.sql'
+          - '*rum.sql'
+          - '*pg_jsonschema*.sql'
+          - '*pg_graphql*.sql'
       register: files_to_remove
       when: is_psql_oriole
 
