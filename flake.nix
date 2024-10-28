@@ -151,7 +151,9 @@
           ./nix/ext/pg_hashids.nix
           ./nix/ext/pgsodium.nix
           ./nix/ext/pg_graphql.nix
-          ./nix/ext/pg_partman.nix
+          # Requires superuser but also uses dynamic sql so need to be owned by posgtres.
+          # investigating options
+          #./nix/ext/pg_partman.nix
           ./nix/ext/pg_stat_monitor.nix
           ./nix/ext/pg_jsonschema.nix
           ./nix/ext/pgvector.nix
