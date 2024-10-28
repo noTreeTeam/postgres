@@ -32,6 +32,7 @@
           /etc/postgresql/postgresql.conf
       when: is_psql_oriole and stage2_nix
       become: yes
+
 - name: Install Git for Nix package management
   become: yes
   apt:
@@ -39,7 +40,6 @@
     state: present
     update_cache: yes
   when: stage2_nix
-
 
 - name: Install Postgres from nix binary cache
   become: yes
