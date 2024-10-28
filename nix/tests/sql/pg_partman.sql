@@ -13,7 +13,7 @@ create table partman_test.time_taptest_table(
 )
   partition by range (col3);
 
-create index on partman_test.time_tap (col3);
+create index on partman_test.time_taptest_table (col3);
 
 /*
 Unique indexes (including primary keys) cannot be created on a natively partitioned parent unless they include the partition key. For time-based partitioning that generally doesn't work out since that would limit only a single timestamp value in each child table. pg_partman helps to manage this by using a template table to manage properties that currently are not supported by native partitioning. Note that this does not solve the issue of the constraint not being enforced across the entire partition set. See the main documentation to see which properties are managed by the template.
