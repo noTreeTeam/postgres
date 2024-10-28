@@ -63,9 +63,9 @@
   failed_when: retval.rc != 0
   when: debpkg_mode or stage2_nix
 
-- name: Check psql_version and modify migrations if orioe-16
+- name: Check psql_version and modify migrations if oriole-xx
   block:
-    - name: Check if psql_version is psql_orioledb-16
+    - name: Check if psql_version is psql_orioledb-xx
       set_fact:
         is_psql_oriole: "{{ psql_version in ['psql_orioledb-16', 'psql_orioledb-17'] }}"
 
