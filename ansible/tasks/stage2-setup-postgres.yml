@@ -25,7 +25,13 @@
           /etc/postgresql-custom/supautils.conf
       when: is_psql_oriole and stage2_nix
       become: yes
-
+    - name: Remove db_user_namespace from postgresql.conf if oriole-xx build
+      ansible.builtin.command:
+        cmd: >
+          sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' 
+          /etc/postgresql/postgresql.conf
+      when: is_psql_oriole and stage2_nix
+      become: yes
 - name: Install Git for Nix package management
   become: yes
   apt:
