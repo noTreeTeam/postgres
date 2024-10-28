@@ -1,8 +1,5 @@
-{ lib, stdenv, fetchFromGitHub, postgresql, buildPgrxExtension_0_11_3, cargo, rust-bin }:
-let
-  rustVersion = "1.76.0";
-  cargo = rust-bin.stable.${rustVersion}.default;
-in
+{ lib, stdenv, fetchFromGitHub, postgresql, buildPgrxExtension_0_11_3, cargo }:
+
 buildPgrxExtension_0_11_3 rec {
   pname = "pg_jsonschema";
   version = "0.3.1";
