@@ -240,9 +240,9 @@
 
 - name: Check psql_version and run postgis linking if not oriole-16
   block:
-    - name: Check if psql_version is psql_orioledb-16
+    - name: Check if psql_version is psql_orioledb-17
       set_fact:
-        is_psql_oriole: "{{ psql_version == 'psql_orioledb-16' }}"
+        is_psql_oriole: "{{ psql_version == 'psql_orioledb-17' }}"
 
     - name: Recursively create symbolic links and set permissions for the contrib/postgis-* dir
       shell: >
