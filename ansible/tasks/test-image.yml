@@ -104,7 +104,7 @@
 
     - name: Remove graphql schema test
       lineinfile:
-        path: /tmp/migrations/tests/databases/exists.sql
+        path: /tmp/migrations/tests/database/exists.sql
         regexp: "^SELECT has_schema\\('graphql'\\);$"
         state: absent
       become: yes
@@ -112,7 +112,7 @@
 
     - name: Remove graphql schema test
       lineinfile:
-        path: /tmp/migrations/tests/databases/exists.sql
+        path: /tmp/migrations/tests/database/exists.sql
         regexp: "^SELECT has_schema\\('graphql_public'\\);$"
         state: absent
       become: yes
