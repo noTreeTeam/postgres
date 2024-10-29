@@ -6,9 +6,10 @@
     flake-utils.url = "github:numtide/flake-utils";
     nix2container.url = "github:nlewo/nix2container";
     nix-editor.url = "github:snowfallorg/nix-editor";
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, flake-utils, nix2container, nix-editor, ...}:
+  outputs = { self, nixpkgs, flake-utils, nix2container, nix-editor, rust-overlay, ...}:
     let
       gitRev = "vcs=${self.shortRev or "dirty"}+${builtins.substring 0 8 (self.lastModifiedDate or self.lastModified or "19700101")}";
 
@@ -38,7 +39,6 @@
             # want to have an arbitrary order, since it might matter. being
             # explicit is better.
             (import ./nix/overlays/cargo-pgrx.nix)
-            (import ./nix/overlays/gdal-small.nix)
             (import ./nix/overlays/psql_16-oriole.nix)
 
           ];
@@ -54,10 +54,41 @@
           };
           inherit system;
           overlays = [
-            # NOTE (aseipp): add any needed overlays here. in theory we could
+            # NOTE add any needed overlays here. in theory we could
             # pull them from the overlays/ directory automatically, but we don't
             # want to have an arbitrary order, since it might matter. being
             # explicit is better.
+            (import rust-overlay)
+            (final: prev: {
+              cargo-pgrx = final.callPackage ./nix/cargo-pgrx/default.nix {
+                inherit (final) lib;
+                inherit (final) darwin;
+                inherit (final) fetchCrate;
+                inherit (final) openssl;
+                inherit (final) pkg-config;
+                inherit (final) makeRustPlatform;
+                inherit (final) stdenv;
+                inherit (final) rust-bin;
+              };
+
+              buildPgrxExtension = final.callPackage ./nix/cargo-pgrx/buildPgrxExtension.nix {
+                inherit (final) cargo-pgrx;
+                inherit (final) lib;
+                inherit (final) Security;
+                inherit (final) pkg-config;
+                inherit (final) makeRustPlatform;
+                inherit (final) stdenv;
+                inherit (final) writeShellScriptBin;
+              };
+
+              buildPgrxExtension_0_11_3 = prev.buildPgrxExtension.override {
+                cargo-pgrx = final.cargo-pgrx.cargo-pgrx_0_11_3;
+              };
+
+              buildPgrxExtension_0_12_6 = prev.buildPgrxExtension.override {
+                cargo-pgrx = final.cargo-pgrx.cargo-pgrx_0_12_6;
+              };
+            })
             (final: prev: {
               postgresql = final.callPackage ./nix/postgresql/default.nix {
                 inherit (final) lib;
@@ -67,16 +98,9 @@
                 inherit (final) callPackage;
               };
             })
-            (import ./nix/overlays/cargo-pgrx-0-11-3.nix)
-            # (import ./nix/overlays/postgis.nix)
-            #(import ./nix/overlays/gdal-small.nix)
-
           ];
         };
-        postgresql_15 = pkgs.postgresql.postgresql_15;
-        postgresql = pkgs.postgresql.postgresql_15;
         sfcgal = pkgs.callPackage ./nix/ext/sfcgal/sfcgal.nix { };
-        pg_regress = pkgs.callPackage ./nix/ext/pg_regress.nix { inherit postgresql; };
         supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
         mecab-naist-jdic = pkgs.callPackage ./nix/ext/mecab-naist-jdic/default.nix { };
         # Our list of PostgreSQL extensions which come from upstream Nixpkgs.
@@ -104,12 +128,14 @@
         # use, but even if they did, keeping our own copies means that we can
         # rollout new versions of these critical things easier without having to
         # go through the upstream release engineering process.
-        ourExtensions = [
+      ourExtensions = let
+        baseExtensions = [
           ./nix/ext/rum.nix
           ./nix/ext/timescaledb.nix
           ./nix/ext/pgroonga.nix
           ./nix/ext/index_advisor.nix
           ./nix/ext/wal2json.nix
+          ./nix/ext/pgmq.nix
           ./nix/ext/pg_repack.nix
           ./nix/ext/pg-safeupdate.nix
           ./nix/ext/plpgsql-check.nix
@@ -122,10 +148,10 @@
           ./nix/ext/pg_cron.nix
           ./nix/ext/pgsql-http.nix
           ./nix/ext/pg_plan_filter.nix
-          ./nix/ext/pg_net.nix
           ./nix/ext/pg_hashids.nix
           ./nix/ext/pgsodium.nix
           ./nix/ext/pg_graphql.nix
+          ./nix/ext/pg_partman.nix
           ./nix/ext/pg_stat_monitor.nix
           ./nix/ext/pg_jsonschema.nix
           ./nix/ext/pgvector.nix
@@ -136,7 +162,13 @@
           ./nix/ext/supautils.nix
           ./nix/ext/plv8.nix
         ];
+        
+        # Add pg_net only if NOT on macOS aarch64
+        pgNetExtension = if (system == "aarch64-darwin") 
+          then []
+          else [ ./nix/ext/pg_net.nix ];
 
+        in baseExtensions ++ pgNetExtension;
         #Where we import and build the orioledb extension, we add on our custom extensions
         # plus the orioledb option
         orioledbExtension = ourExtensions ++ [ ./nix/ext/orioledb.nix ];
@@ -146,8 +178,6 @@
         #postgis_override = pkgs.postgis_override;
         getPostgresqlPackage = version:
           pkgs.postgresql."postgresql_${version}";
-        #we will add supported versions to this list in the future
-        supportedVersions = [ "15" ];
         # Create a 'receipt' file for a given postgresql package. This is a way
         # of adding a bit of metadata to the package, which can be used by other
         # tools to inspect what the contents of the install are: the PSQL
@@ -284,22 +314,75 @@
         # be used with 'nix build'. Don't use the names listed below; check the
         # name in 'nix flake show' in order to make sure exactly what name you
         # want.
-        basePackages = {
+        basePackages = let
+          # Function to get the PostgreSQL version from the attribute name
+          getVersion = name: 
+            let
+              match = builtins.match "psql_([0-9]+)" name;
+            in
+            if match == null then null else builtins.head match;
+
+          # Define the available PostgreSQL versions
+          postgresVersions = {
+            psql_15 = makePostgres "15";
+            psql_16 = makePostgres "16";
+            # psql_orioledb_16 = makeOrioleDbPostgres "16_23" postgresql_orioledb_16;
+          };
+
+          # Find the active PostgreSQL version
+          activeVersion = getVersion (builtins.head (builtins.attrNames postgresVersions));
+
+          # Function to create the pg_regress package
+          makePgRegress = version:
+            let
+              postgresqlPackage = pkgs."postgresql_${version}";
+            in
+              pkgs.callPackage ./nix/ext/pg_regress.nix { 
+                postgresql = postgresqlPackage;
+              };
+          postgresql_15 = getPostgresqlPackage "15";
+          postgresql_16 = getPostgresqlPackage "16";
+        in 
+        postgresVersions //{
           supabase-groonga = supabase-groonga;
+          cargo-pgrx_0_11_3 = pkgs.cargo-pgrx.cargo-pgrx_0_11_3;
+          cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
           # PostgreSQL versions.
-          psql_15 = makePostgres "15";
-          #psql_16 = makePostgres "16";
+          psql_15 = postgresVersions.psql_15;
+          psql_16 = postgresVersions.psql_16;
           #psql_orioledb_16 = makeOrioleDbPostgres "16_23" postgresql_orioledb_16;
           sfcgal = sfcgal;
-          pg_regress = pg_regress;
           pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
-          postgresql_15 = pkgs.postgresql_15;
-
+          inherit postgresql_15 postgresql_16;
+          postgresql_15_debug = if pkgs.stdenv.isLinux then postgresql_15.debug else null;
+          postgresql_16_debug = if pkgs.stdenv.isLinux then postgresql_16.debug else null;
           postgresql_15_src = pkgs.stdenv.mkDerivation {
             pname = "postgresql-15-src";
-            version = pkgs.postgresql_15.version;
+            version = postgresql_15.version;
 
-            src = pkgs.postgresql_15.src;
+            src = postgresql_15.src;
+
+            nativeBuildInputs = [ pkgs.bzip2 ];
+
+            phases = [ "unpackPhase" "installPhase" ];
+
+            installPhase = ''
+              mkdir -p $out
+              cp -r . $out
+            '';
+
+            meta = with pkgs.lib; {
+              description = "PostgreSQL 15 source files";
+              homepage = "https://www.postgresql.org/";
+              license = licenses.postgresql;
+              platforms = platforms.all;
+            };
+          };
+          postgresql_16_src = pkgs.stdenv.mkDerivation {
+            pname = "postgresql-16-src";
+            version = postgresql_16.version;
+
+            src = postgresql_16.src;
 
             nativeBuildInputs = [ pkgs.bzip2 ];
 
@@ -319,6 +402,7 @@
           };
           mecab_naist_jdic = mecab-naist-jdic;
           supabase_groonga = supabase-groonga;
+          pg_regress = makePgRegress activeVersion;
           # Start a version of the server.
           start-server =
             let
@@ -374,6 +458,7 @@
                 --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}' \
                 --subst-var-by 'PSQL15_BINDIR' '${basePackages.psql_15.bin}' \
                 --subst-var-by 'PSQL_CONF_FILE' $out/etc/postgresql/postgresql.conf \
+                --subst-var-by 'PSQL16_BINDIR' '${basePackages.psql_16.bin}' \
                 --subst-var-by 'PGSODIUM_GETKEY' '${getkeyScript}' \
                 --subst-var-by 'READREPL_CONF_FILE' "$out/etc/postgresql-custom/read-replica.conf" \
                 --subst-var-by 'LOGGING_CONF_FILE' "$out/etc/postgresql-custom/logging.conf" \
@@ -383,7 +468,8 @@
                 --subst-var-by 'LOCALES' '${localeArchive}' \
                 --subst-var-by 'EXTENSION_CUSTOM_SCRIPTS_DIR' "$out/extension-custom-scripts" \
                 --subst-var-by 'MECAB_LIB' '${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so' \
-                --subst-var-by 'GROONGA_DIR' '${supabase-groonga}' 
+                --subst-var-by 'GROONGA_DIR' '${supabase-groonga}' \
+                --subst-var-by 'CURRENT_SYSTEM' '${system}'
 
               chmod +x $out/bin/start-postgres-server
             '';
@@ -402,6 +488,7 @@
                 --subst-var-by 'PGSQL_DEFAULT_PORT' '${pgsqlDefaultPort}' \
                 --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}' \
                 --subst-var-by 'PSQL15_BINDIR' '${basePackages.psql_15.bin}' \
+                --subst-var-by 'PSQL16_BINDIR' '${basePackages.psql_16.bin}' \
                 --subst-var-by 'MIGRATIONS_DIR' '${migrationsDir}' \
                 --subst-var-by 'POSTGRESQL_SCHEMA_SQL' '${postgresqlSchemaSql}' \
                 --subst-var-by 'PGBOUNCER_AUTH_SCHEMA_SQL' '${pgbouncerAuthSchemaSql}' \
@@ -436,6 +523,13 @@
               --subst-var-by 'PSQL15_BINDIR' '${basePackages.psql_15.bin}'
             chmod +x $out/bin/start-postgres-replica
           '';
+          pg-restore =
+            pkgs.runCommand "run-pg-restore" { } ''
+              mkdir -p $out/bin
+              substitute ${./nix/tools/run-restore.sh.in} $out/bin/pg-restore \
+                --subst-var-by PSQL15_BINDIR '${basePackages.psql_15.bin}'
+              chmod +x $out/bin/pg-restore
+            '';
           sync-exts-versions = pkgs.runCommand "sync-exts-versions" { } ''
             mkdir -p $out/bin
             substitute ${./nix/tools/sync-exts-versions.sh.in} $out/bin/sync-exts-versions \
@@ -455,6 +549,7 @@
             sqlTests = ./nix/tests/smoke;
             pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
             supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
+            pg_regress = basePackages.pg_regress;
           in
           pkgs.runCommand "postgres-${pgpkg.version}-check-harness"
             {
@@ -535,17 +630,14 @@
         packages = flake-utils.lib.flattenTree basePackages // {
           # Any extra packages we might want to include in our package
           # set can go here.
-          inherit (pkgs)
-            # NOTE: comes from our cargo-pgrx-0-11-3.nix overlay
-            cargo-pgrx_0_11_3;
-
+          inherit (pkgs);
         };
 
         # The list of exported 'checks' that are run with every run of 'nix
         # flake check'. This is run in the CI system, as well.
         checks = {
           psql_15 = makeCheckHarness basePackages.psql_15.bin;
-          #psql_16 = makeCheckHarness basePackages.psql_16.bin;
+          psql_16 = makeCheckHarness basePackages.psql_16.bin;
           #psql_orioledb_16 = makeCheckHarness basePackages.psql_orioledb_16.bin;
         };
 
@@ -565,13 +657,28 @@
             start-replica = mkApp "start-replica" "start-postgres-replica";
             migration-test = mkApp "migrate-tool" "migrate-postgres";
             sync-exts-versions = mkApp "sync-exts-versions" "sync-exts-versions";
+            pg-restore = mkApp "pg-restore" "pg-restore";
           };
 
         # 'devShells.default' lists the set of packages that are included in the
         # ambient $PATH environment when you run 'nix develop'. This is useful
         # for development and puts many convenient devtools instantly within
         # reach.
-        devShells.default = pkgs.mkShell {
+
+      devShells = let
+        mkCargoPgrxDevShell = { pgrxVersion, rustVersion }: pkgs.mkShell {
+          packages = with pkgs; [
+            basePackages."cargo-pgrx_${pgrxVersion}"
+            (rust-bin.stable.${rustVersion}.default.override {
+              extensions = [ "rust-src" ];
+            })
+          ];
+          shellHook = ''
+            export HISTFILE=.history
+          '';
+        };
+      in {
+        default = pkgs.mkShell {
           packages = with pkgs; [
             coreutils
             just
@@ -594,6 +701,15 @@
             export HISTFILE=.history
           '';
         };
-      }
-    );
+        cargo-pgrx_0_11_3 = mkCargoPgrxDevShell {
+          pgrxVersion = "0_11_3";
+          rustVersion = "1.80.0";
+        };
+        cargo-pgrx_0_12_6 = mkCargoPgrxDevShell {
+          pgrxVersion = "0_12_6";
+          rustVersion = "1.80.0";
+        };
+      };     
+  }
+  );
 }
