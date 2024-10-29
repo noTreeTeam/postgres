@@ -151,14 +151,11 @@
         orioleFilteredExtensions = builtins.filter (
           x: 
             x != ./nix/ext/timescaledb.nix && 
-            #x != ./nix/ext/pgvector.nix &&
             x != ./nix/ext/plv8.nix && 
             x != ./nix/ext/postgis.nix && 
             x != ./nix/ext/pgrouting.nix &&
             x != ./nix/ext/pg_jsonschema.nix &&
             x != ./nix/ext/pg_graphql.nix 
-            #x != ./nix/ext/rum.nix 
-            #x != ./nix/ext/wal2json.nix 
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
