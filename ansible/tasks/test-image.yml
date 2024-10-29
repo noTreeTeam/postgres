@@ -101,7 +101,15 @@
           sed -i "/'pg_graphql',/d" /tmp/unit-tests/unit-test-01.sql
       when: is_psql_oriole
       become: yes
-      
+
+    - name: Remove graphql schema test
+      lineinfile:
+        path: /tmp/migrations/tests/databases/exists.sql
+        regexp: "^SELECT has_schema\\('graphql'\\);$"
+        state: absent
+      become: yes
+      when: is_psql_oriole
+
 - name: Run Unit tests (with filename unit-test-*) on Postgres Database
   shell: /usr/bin/pg_prove -U postgres -h localhost -d postgres -v /tmp/unit-tests/unit-test-*.sql
   register: retval
