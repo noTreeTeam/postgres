@@ -110,6 +110,14 @@
       become: yes
       when: is_psql_oriole
 
+    - name: Remove graphql schema test
+      lineinfile:
+        path: /tmp/migrations/tests/databases/exists.sql
+        regexp: "^SELECT has_schema\\('graphql_public'\\);$"
+        state: absent
+      become: yes
+      when: is_psql_oriole
+
 - name: Run Unit tests (with filename unit-test-*) on Postgres Database
   shell: /usr/bin/pg_prove -U postgres -h localhost -d postgres -v /tmp/unit-tests/unit-test-*.sql
   register: retval
