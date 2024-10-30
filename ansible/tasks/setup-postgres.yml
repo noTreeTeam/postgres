@@ -229,9 +229,15 @@
     - name: Initialize the database stage2_nix (orioledb)
       become: yes
       become_user: postgres
-      shell: source /var/lib/postgresql/.bashrc && /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data initdb -o "--allow-group-access" -o "--username=supabase_admin" -o "--locale-provider=icu" -o "--encoding=UTF-8" -o "--icu-locale=en_US.UTF-8"
-      args:
-        executable: /bin/bash
+      cmd: >
+        source /var/lib/postgresql/.bashrc && /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data initdb \
+        -o "--allow-group-access" \
+        -o "--username=supabase_admin" \
+        -o "--locale-provider=icu" \
+        -o "--encoding=UTF-8" \
+        -o "--icu-locale=en_US.UTF-8" \
+        -o "--lc-collate=en-US-x-icu" \
+        -o "--lc-ctype=en-US-x-icu"
       environment:
         LANG: en_US.UTF-8
         LANGUAGE: en_US.UTF-8
