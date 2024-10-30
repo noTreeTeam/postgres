@@ -213,7 +213,7 @@
     - name: Initialize the database stage2_nix (non-orioledb)
       become: yes
       become_user: postgres
-      shell: source /var/lib/postgresql/.bashrc && /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data initdb -o "--allow-group-access" -o "--username=supabase_admin"
+      shell: source /var/lib/postgresql/.bashrc && initdb -D /var/lib/postgresql/data -o "--allow-group-access" -o "--username=supabase_admin"
       args:
         executable: /bin/bash
       environment:
@@ -229,15 +229,17 @@
     - name: Initialize the database stage2_nix (orioledb)
       become: yes
       become_user: postgres
-      cmd: >
-        source /var/lib/postgresql/.bashrc && /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data initdb \
-        -o "--allow-group-access" \
-        -o "--username=supabase_admin" \
-        -o "--locale-provider=icu" \
-        -o "--encoding=UTF-8" \
-        -o "--icu-locale=en_US.UTF-8" \
-        -o "--lc-collate=en-US-x-icu" \
-        -o "--lc-ctype=en-US-x-icu"
+      shell: >
+        source /var/lib/postgresql/.bashrc && initdb -D /var/lib/postgresql/data 
+        --allow-group-access 
+        --username=supabase_admin 
+        --locale-provider=icu 
+        --encoding=UTF-8 
+        --icu-locale=en_US.UTF-8 
+        --lc-collate=en-US-x-icu 
+        --lc-ctype=en-US-x-icu
+      args:
+        executable: /bin/bash
       environment:
         LANG: en_US.UTF-8
         LANGUAGE: en_US.UTF-8
