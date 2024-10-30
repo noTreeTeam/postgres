@@ -236,8 +236,6 @@
         --locale-provider=icu 
         --encoding=UTF-8 
         --icu-locale=en_US.UTF-8 
-        --lc-collate=en-US-x-icu 
-        --lc-ctype=en-US-x-icu
       args:
         executable: /bin/bash
       environment:
