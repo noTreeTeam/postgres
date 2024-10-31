@@ -1,5 +1,12 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
+do $$ 
+begin 
+    if not exists (select 1 from pg_extension where extname = 'orioledb') then
+        create extension if not exists orioledb;
+    end if;
+end $$;
+
 SELECT plan(8);
 
 -- Check installed extensions
