@@ -10,7 +10,7 @@ postgres_major:
 
 # Full version strings for each major version
 postgres_release:
-  postgres15: "15.8.1.004-repack"
+  postgres15: "15.8.1.004-repack-2"
 
 # Non Postgres Extensions
 pgbouncer_release: "1.19.0"
