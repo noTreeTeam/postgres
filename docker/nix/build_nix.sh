@@ -5,8 +5,11 @@ nix --version
 if [ -d "/workspace" ]; then
     cd /workspace
 fi
-nix build .#checks.$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"').psql_15 -L --no-link
-nix build .#checks.$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"').psql_16 -L --no-link
+if [ "$(uname -sm)" != "Darwin arm64" ]; then
+    echo "Running on non-macOS arm64 and amd64, remove me when pg_net supports darwin arm64" 
+    nix build .#checks.$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"').psql_15 -L --no-link
+    nix build .#checks.$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"').psql_16 -L --no-link
+fi
 #no nix flake check on oriole yet
 nix build .#psql_15/bin -o psql_15
 nix build .#psql_16/bin -o psql_16

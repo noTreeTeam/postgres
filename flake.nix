@@ -528,19 +528,24 @@
             pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
             supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
             pg_regress = basePackages.pg_regress;
+            tmpDirCmd = if pkgs.stdenv.isDarwin then
+              ''mkdir -p /tmp/postgres-check.$$ && echo "/tmp/postgres-check.$$"''
+            else
+              "mktemp -d";
           in
           pkgs.runCommand "postgres-${pgpkg.version}-check-harness"
             {
               nativeBuildInputs = with pkgs; [ coreutils bash pgpkg pg_prove pg_regress procps supabase-groonga ];
             } ''
-            TMPDIR=$(mktemp -d)
+            TMPDIR=$(${tmpDirCmd})
             if [ $? -ne 0 ]; then
               echo "Failed to create temp directory" >&2
               exit 1
             fi
+            chmod -R 755 "$TMPDIR"
 
             # Ensure the temporary directory is removed on exit
-            trap 'rm -rf "$TMPDIR"' EXIT
+            #trap 'rm -rf "$TMPDIR"' EXIT
 
             export PGDATA="$TMPDIR/pgdata"
             export PGSODIUM_DIR="$TMPDIR/pgsodium"
@@ -560,8 +565,19 @@
             echo "listen_addresses = '*'" >> $PGDATA/postgresql.conf
             echo "port = 5432" >> $PGDATA/postgresql.conf
             echo "host all all 127.0.0.1/32 trust" >> $PGDATA/pg_hba.conf
+            # Add system-specific configuration for aarch64-darwin
+
             #postgres -D "$PGDATA" -k "$TMPDIR" -h localhost -p 5432 >$TMPDIR/logfile/postgresql.log 2>&1 &
             pg_ctl -D "$PGDATA" -l $TMPDIR/logfile/postgresql.log -o "-k $TMPDIR -p 5432" start
+            # If server fails to start, output diagnostic information
+            if ! pg_ctl -D $TMPDIR/pgdata status > /dev/null 2>&1; then
+              echo "=== PostgreSQL Log ==="
+              cat $TMPDIR/logfile/postgresql.log
+              echo "=== System Information ==="
+                ls -la $TMPDIR/pgdata
+                whoami
+                groups
+            fi
             for i in {1..60}; do
               if pg_isready -h localhost -p 5432; then
                 echo "PostgreSQL is ready"
