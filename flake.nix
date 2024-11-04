@@ -528,40 +528,46 @@
             pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
             supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
             pg_regress = basePackages.pg_regress;
+            tmpDirCmd = if pkgs.stdenv.isDarwin then
+              "$(pwd)/postgres-tmp"
+            else
+              "mktemp -d";
           in
           pkgs.runCommand "postgres-${pgpkg.version}-check-harness"
             {
               nativeBuildInputs = with pkgs; [ coreutils bash pgpkg pg_prove pg_regress procps supabase-groonga ];
             } ''
-            TMPDIR=$(mktemp -d)
+            $WORKDIR=$(${tmpDirCmd})
             if [ $? -ne 0 ]; then
               echo "Failed to create temp directory" >&2
               exit 1
             fi
 
-            # Ensure the temporary directory is removed on exit
-            trap 'rm -rf "$TMPDIR"' EXIT
+            chmod 700 "$WORKDIR"
 
-            export PGDATA="$TMPDIR/pgdata"
-            export PGSODIUM_DIR="$TMPDIR/pgsodium"
+            # Ensure the temporary directory is removed on exit
+            #trap 'rm -rf "$WORKDIR"' EXIT
+
+            export PGDATA="$WORKDIR/pgdata"
+            export PGSODIUM_DIR="$WORKDIR/pgsodium"
 
             mkdir -p $PGDATA
-            mkdir -p $TMPDIR/logfile
+            mkdir -p $WORKDIR/logfile
             # Generate a random key and store it in an environment variable
             export PGSODIUM_KEY=$(head -c 32 /dev/urandom | od -A n -t x1 | tr -d ' \n')
             export GRN_PLUGINS_DIR=${supabase-groonga}/lib/groonga/plugins
             # Create a simple script to echo the key
-            echo '#!/bin/sh' > $TMPDIR/getkey.sh
-            echo 'echo $PGSODIUM_KEY' >> $TMPDIR/getkey.sh
-            chmod +x $TMPDIR/getkey.sh
+            echo '#!/bin/sh' > $WORKDIR/getkey.sh
+            echo 'echo $PGSODIUM_KEY' >> $WORKDIR/getkey.sh
+            chmod +x $WORKDIR/getkey.sh
             initdb --locale=C --username=supabase_admin
             substitute ${./nix/tests/postgresql.conf.in} $PGDATA/postgresql.conf \
-              --subst-var-by PGSODIUM_GETKEY_SCRIPT "$TMPDIR/getkey.sh"
+              --subst-var-by PGSODIUM_GETKEY_SCRIPT "$WORKDIR/getkey.sh"
             echo "listen_addresses = '*'" >> $PGDATA/postgresql.conf
             echo "port = 5432" >> $PGDATA/postgresql.conf
             echo "host all all 127.0.0.1/32 trust" >> $PGDATA/pg_hba.conf
-            #postgres -D "$PGDATA" -k "$TMPDIR" -h localhost -p 5432 >$TMPDIR/logfile/postgresql.log 2>&1 &
-            pg_ctl -D "$PGDATA" -l $TMPDIR/logfile/postgresql.log -o "-k $TMPDIR -p 5432" start
+            #postgres -D "$PGDATA" -k "$WORKDIR" -h localhost -p 5432 >$WORKDIR/logfile/postgresql.log 2>&1 &
+            pg_ctl -D "$PGDATA" -l $WORKDIR/logfile/postgresql.log -o "-k $WORKDIR -p 5432" start
             for i in {1..60}; do
               if pg_isready -h localhost -p 5432; then
                 echo "PostgreSQL is ready"
@@ -573,14 +579,14 @@
                 echo "PostgreSQL status:"
                 pg_ctl -D "$PGDATA" status
                 echo "PostgreSQL log content:"
-                cat $TMPDIR/logfile/postgresql.log
+                cat $WORKDIR/logfile/postgresql.log
                 exit 1
               fi
             done
             createdb -p 5432 -h localhost --username=supabase_admin testing
             if ! psql -p 5432 -h localhost --username=supabase_admin -d testing -v ON_ERROR_STOP=1 -Xaf ${./nix/tests/prime.sql}; then
               echo "Error executing SQL file. PostgreSQL log content:"
-              cat $TMPDIR/logfile/postgresql.log
+              cat $WORKDIR/logfile/postgresql.log
               pg_ctl -D "$PGDATA" stop
               exit 1
             fi
@@ -598,7 +604,7 @@
               $(ls ${./nix/tests/sql} | sed -e 's/\..*$//' | sort )
 
             pg_ctl -D "$PGDATA" stop
-            mv $TMPDIR/logfile/postgresql.log $out
+            mv $WORKDIR/logfile/postgresql.log $out
             echo ${pgpkg}
           '';
       in
