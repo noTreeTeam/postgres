@@ -1,10 +1,3 @@
--- Create all extensions
-\ir extensions/test.sql
-
-BEGIN;
-
-CREATE EXTENSION IF NOT EXISTS pgtap;
-
 -- Check and create OrioleDB if available
 DO $$
 BEGIN
@@ -14,6 +7,13 @@ BEGIN
         END IF;
     END IF;
 END $$;
+
+-- Create all extensions
+\ir extensions/test.sql
+
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS pgtap;
 
 SELECT no_plan();
 
