@@ -65,13 +65,23 @@ session_preload_libraries = 'supautils'" \
 "$PSQL_CONF_FILE" > "$DATDIR/postgresql.conf"
 
 orioledb_config_items() {
-    if [ "$1" == "orioledb-17" ]; then
+    if [[ "$1" = "orioledb-17" && "$CURRENT_SYSTEM" != "aarch64-darwin" ]]; then
         # Remove items from postgresql.conf
         sed -i 's/ timescaledb,//g;' "$DATDIR/postgresql.conf"
         #as of pg 16.4 + this db_user_namespace totally deprecated and will break the server if setting is present
         sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
         sed -i 's/ timescaledb,//g; s/ plv8,//g; s/ postgis,//g; s/ pgrouting,//g' "$DATDIR/supautils.conf"
         sed -i 's/\(shared_preload_libraries.*\)'\''\(.*\)$/\1, orioledb'\''\2/' "$DATADIR/postgresql.conf"
+        echo "default_table_access_method = 'orioledb'" >> "$DATADIR/postgresql.conf"
+
+    fi
+    if [[ "$1" = "orioledb-17" && "$CURRENT_SYSTEM" = "aarch64-darwin" ]]; then
+        # Remove items from postgresql.conf
+        sed -i '' 's/ timescaledb,//g;' "$DATDIR/postgresql.conf"
+        #as of pg 16.4 + this db_user_namespace totally deprecated and will break the server if setting is present
+        sed -i '' 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
+        sed -i '' 's/ timescaledb,//g; s/ plv8,//g; s/ postgis,//g; s/ pgrouting,//g' "$DATDIR/supautils.conf"
+        sed -i '' 's/\(shared_preload_libraries.*\)'\''\(.*\)$/\1, orioledb'\''\2/' "$DATADIR/postgresql.conf"
         echo "default_table_access_method = 'orioledb'" >> "$DATADIR/postgresql.conf"
 
     fi
