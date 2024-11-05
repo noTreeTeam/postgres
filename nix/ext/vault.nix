@@ -20,8 +20,9 @@ stdenv.mkDerivation rec {
   installPhase = ''
     mkdir -p $out/{lib,share/postgresql/extension}
 
-    cp sql/*.sql $out/share/postgresql/extension
-    cp *.control $out/share/postgresql/extension
+    install -D *${postgresql.dlSuffix} $out/lib
+    install -D -t $out/share/postgresql/extension sql/*.sql
+    install -D -t $out/share/postgresql/extension *.control
   '';
 
   meta = with lib; {
