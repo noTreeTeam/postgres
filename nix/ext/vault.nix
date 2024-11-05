@@ -1,4 +1,4 @@
-{ lib, stdenv, fetchFromGitHub, postgresql }:
+{ lib, stdenv, fetchFromGitHub, libsodium, postgresql }:
 
 stdenv.mkDerivation rec {
   pname = "vault";
@@ -8,7 +8,7 @@ stdenv.mkDerivation rec {
     ./001-new-vault.patch
   ];
 
-  buildInputs = [ postgresql ];
+  buildInputs = [ libsodium postgresql ];
 
   src = fetchFromGitHub {
     owner = "supabase";
