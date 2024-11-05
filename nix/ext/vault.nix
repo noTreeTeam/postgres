@@ -4,6 +4,10 @@ stdenv.mkDerivation rec {
   pname = "vault";
   version = "0.2.9";
 
+  patches = [
+    ./001-new-vault.patch
+  ];
+
   buildInputs = [ postgresql ];
 
   src = fetchFromGitHub {
