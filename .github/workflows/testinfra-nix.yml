@@ -18,7 +18,7 @@ jobs:
       - name: Set PostgreSQL versions
         id: set-versions
         run: |
-          VERSIONS=$(nix run nixpkgs#yq --  '.postgres_major[]' ansible/vars.yml | nix run nixpkgs#jq -- -R -s -c 'split("\n")[:-1]')
+          VERSIONS=$(yq  '.postgres_major[]' ansible/vars.yml | jq -- -R -s -c 'split("\n")[:-1]')
           echo "postgres_versions=$VERSIONS" >> $GITHUB_OUTPUT
 
   test-ami-nix:
@@ -61,11 +61,11 @@ jobs:
 
       - name: Set PostgreSQL version environment variable
         run: echo "POSTGRES_MAJOR_VERSION=${{ matrix.postgres_version }}" >> $GITHUB_ENV
-    
-      - name: Install yq
+      
+      - name: Install yq & jq
         run: |
           sudo apt-get update
-          sudo apt-get install -y yq
+          sudo apt-get install -y yq jq
 
       - name: Generate common-nix.vars.pkr.hcl
         run: |
