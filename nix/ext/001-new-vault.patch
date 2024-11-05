@@ -1,0 +1,2129 @@
+diff --git a/.dockerignore b/.dockerignore
+new file mode 100644
+index 0000000..80209a1
+--- /dev/null
++++ b/.dockerignore
+@@ -0,0 +1,7 @@
++Dockerfile
++test.sh
++psql.sh
++.dockerignore
++.git
++.cache
++test*
+diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
+index 64cf218..77209b9 100644
+--- a/.github/workflows/test.yml
++++ b/.github/workflows/test.yml
+@@ -1,24 +1,12 @@
+ name: Tests
+ 
+-on:
+-  pull_request:
+-  push:
+-    branches:
+-      - main
++on: push
+ 
+ jobs:
+-  test:
++  tests:
+     runs-on: ubuntu-latest
+-    strategy:
+-      matrix:
+-        pg-version: ['13', '14', '15', '16', '17']
+-
+     steps:
+-    - uses: actions/checkout@v4
+-    - uses: cachix/install-nix-action@v13
+-      with:
+-        nix_path: nixpkgs=channel:nixos-unstable
+-    - name: Run tests
+-      run: nix-shell --run "vault-with-pg-${{ matrix.pg-version }} make installcheck"
+-    - if: ${{ failure() }}
+-      run: cat regression.diffs
++      - uses: actions/checkout@v2
++      - name: Run tests
++        run: |
++          ./test.sh 15
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..31006e3
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,11 @@
++FROM postgres:15
++RUN apt-get update && apt-get install -y make build-essential curl git postgresql-server-dev-15 postgresql-15-pgtap
++RUN curl -s -L https://download.libsodium.org/libsodium/releases/libsodium-1.0.18.tar.gz | tar zxvf - && cd libsodium-1.0.18 && ./configure && make check && make -j 4 install
++RUN ldconfig
++RUN git clone https://github.com/michelp/pgsodium.git && cd pgsodium && git checkout tags/v3.1.3 && make install
++# RUN git clone https://github.com/michelp/pgsodium.git && cd pgsodium && git checkout main && make install
++RUN mkdir "/vault"
++WORKDIR "/vault"
++COPY . .
++RUN make && make install
++
+diff --git a/LICENSE b/LICENSE
+index e9f0e08..8c33ac1 100644
+--- a/LICENSE
++++ b/LICENSE
+@@ -1,5 +1,3 @@
+-# Supabase Vault License
+-
+                                  Apache License
+                            Version 2.0, January 2004
+                         http://www.apache.org/licenses/
+@@ -190,52 +188,3 @@
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-
+-# pgsodium License
+-
+-Copyright (c) 2020 Michel Pelletier and Contributors
+-
+-Permission to use, copy, modify, and distribute this software and its
+-documentation for any purpose, without fee, and without a written agreement
+-is hereby granted, provided that the above copyright notice and this
+-paragraph and the following two paragraphs appear in all copies.
+-
+-IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+-DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+-LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS
+-DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE
+-POSSIBILITY OF SUCH DAMAGE.
+-
+-THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+-INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+-AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
+-ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO
+-PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+-
+-# libsodium-xchacha20-siv License
+-
+-BSD 2-Clause License
+-
+-Copyright (c) 2020-2024, Frank Denis
+-All rights reserved.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions are met:
+-
+-* Redistributions of source code must retain the above copyright notice, this
+-  list of conditions and the following disclaimer.
+-
+-* Redistributions in binary form must reproduce the above copyright notice,
+-  this list of conditions and the following disclaimer in the documentation
+-  and/or other materials provided with the distribution.
+-
+-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/Makefile b/Makefile
+index af0ef00..7f66766 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,25 +1,5 @@
+-PG_CFLAGS = -std=c99 -Werror -Wno-declaration-after-statement
+ EXTENSION = supabase_vault
+-EXTVERSION = 0.3.0
+-
+ DATA = $(wildcard sql/*--*.sql)
+-
+-TESTS = $(wildcard test/sql/*.sql)
+-REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
+-REGRESS_OPTS = --use-existing --inputdir=test
+-
+-MODULE_big = $(EXTENSION)
+-OBJS = $(patsubst %.c,%.o,$(wildcard src/*.c))
+-
+-all: $(EXTENSION).control
+-
+-$(EXTENSION).control:
+-	sed "s/@VAULT_VERSION@/$(EXTVERSION)/g" $(EXTENSION).control.in > $(EXTENSION).control
+-
+ PG_CONFIG = pg_config
+-SHLIB_LINK = -lsodium
+-
+-PG_CPPFLAGS := $(CPPFLAGS) -DEXTVERSION=\"$(EXTVERSION)\"
+-
+ PGXS := $(shell $(PG_CONFIG) --pgxs)
+ include $(PGXS)
+diff --git a/nix/pgScript.nix b/nix/pgScript.nix
+deleted file mode 100644
+index 2e6fbd2..0000000
+--- a/nix/pgScript.nix
++++ /dev/null
+@@ -1,12 +0,0 @@
+-{ postgresql, writeShellScriptBin } :
+-
+-let
+-  ver = builtins.head (builtins.splitVersion postgresql.version);
+-  src = builtins.readFile ./withTmpDb.sh.in;
+-in
+-(writeShellScriptBin "vault-with-pg-${ver}" src).overrideAttrs(old: {
+-  buildCommand = ''
+-    ${old.buildCommand}
+-    substituteInPlace $out/bin/${old.name} --subst-var-by 'POSTGRESQL_PATH' '${postgresql}'
+-  '';
+-})
+diff --git a/nix/pgsodium.nix b/nix/pgsodium.nix
+deleted file mode 100644
+index 02dae13..0000000
+--- a/nix/pgsodium.nix
++++ /dev/null
+@@ -1,31 +0,0 @@
+-{ lib, stdenv, fetchFromGitHub, libsodium, postgresql }:
+-
+-stdenv.mkDerivation rec {
+-  pname = "pgsodium";
+-  version = "3.1.8";
+-
+-  buildInputs = [ libsodium postgresql ];
+-
+-  src = fetchFromGitHub {
+-    owner = "michelp";
+-    repo = pname;
+-    rev = "refs/tags/v${version}";
+-    hash = "sha256-j5F1PPdwfQRbV8XJ8Mloi8FvZF0MTl4eyIJcBYQy1E4=";
+-  };
+-
+-  installPhase = ''
+-    mkdir -p $out/{lib,share/postgresql/extension}
+-
+-    install -D *${postgresql.dlSuffix}      $out/lib
+-    install -D -t $out/share/postgresql/extension sql/*.sql
+-    install -D -t $out/share/postgresql/extension *.control
+-  '';
+-
+-  meta = with lib; {
+-    description = "Modern cryptography for PostgreSQL";
+-    homepage = "https://github.com/michelp/${pname}";
+-    maintainers = with maintainers; [ samrose ];
+-    platforms = postgresql.meta.platforms;
+-    license = licenses.postgresql;
+-  };
+-}
+diff --git a/nix/pgtap.nix b/nix/pgtap.nix
+deleted file mode 100644
+index c5a17c9..0000000
+--- a/nix/pgtap.nix
++++ /dev/null
+@@ -1,33 +0,0 @@
+-{ lib, stdenv, fetchFromGitHub, postgresql, perl, perlPackages, which }:
+-
+-stdenv.mkDerivation rec {
+-  pname = "pgtap";
+-  version = "1.2.0";
+-
+-  src = fetchFromGitHub {
+-    owner = "theory";
+-    repo = "pgtap";
+-    rev = "v${version}";
+-    hash = "sha256-lb0PRffwo6J5a6Hqw1ggvn0cW7gPZ02OEcLPi9ineI8=";
+-  };
+-
+-  nativeBuildInputs = [ postgresql perl perlPackages.TAPParserSourceHandlerpgTAP which ];
+-
+-  installPhase = ''
+-    install -D {sql/pgtap--${version}.sql,pgtap.control} -t $out/share/postgresql/extension
+-  '';
+-
+-  meta = with lib; {
+-    description = "A unit testing framework for PostgreSQL";
+-    longDescription = ''
+-      pgTAP is a unit testing framework for PostgreSQL written in PL/pgSQL and PL/SQL.
+-      It includes a comprehensive collection of TAP-emitting assertion functions,
+-      as well as the ability to integrate with other TAP-emitting test frameworks.
+-      It can also be used in the xUnit testing style.
+-    '';
+-    maintainers = with maintainers; [ samrose ];
+-    homepage = "https://pgtap.org";
+-    inherit (postgresql.meta) platforms;
+-    license = licenses.mit;
+-  };
+-}
+diff --git a/nix/postgresql/17.nix b/nix/postgresql/17.nix
+deleted file mode 100644
+index f99c757..0000000
+--- a/nix/postgresql/17.nix
++++ /dev/null
+@@ -1,4 +0,0 @@
+-import ./generic.nix {
+-  version = "17.0";
+-  hash = "sha256-fidhMcD91rYliNutmzuyS4w0mNUAkyjbpZrxboGRCd4=";
+-}
+diff --git a/nix/postgresql/default.nix b/nix/postgresql/default.nix
+deleted file mode 100644
+index 575051e..0000000
+--- a/nix/postgresql/default.nix
++++ /dev/null
+@@ -1,27 +0,0 @@
+-self:
+-let
+-  # Before removing an EOL major version, make sure to check the versioning policy in:
+-  # <nixpkgs>/nixos/modules/services/databases/postgresql.md
+-  #
+-  # Before removing, make sure to update it to the last minor version - and if only in
+-  # an immediately preceding commit. This allows people relying on that old major version
+-  # for a bit longer to still update up to this commit to at least get the latest minor
+-  # version. In other words: Do not remove the second-to-last minor version from nixpkgs,
+-  # yet. Update first.
+-  versions = {
+-    postgresql_17 = ./17.nix;
+-  };
+-
+-  mkAttributes = jitSupport:
+-    self.lib.mapAttrs' (version: path:
+-      let
+-        attrName = if jitSupport then "${version}_jit" else version;
+-      in
+-      self.lib.nameValuePair attrName (import path {
+-        inherit jitSupport self;
+-      })
+-    ) versions;
+-
+-in
+-# variations without and with JIT
+-(mkAttributes false) // (mkAttributes true)
+diff --git a/nix/postgresql/generic.nix b/nix/postgresql/generic.nix
+deleted file mode 100644
+index ba730c4..0000000
+--- a/nix/postgresql/generic.nix
++++ /dev/null
+@@ -1,311 +0,0 @@
+-let
+-
+-  generic =
+-      # dependencies
+-      { stdenv, lib, fetchurl, makeWrapper
+-      , glibc, zlib, readline, openssl, icu, lz4, zstd, systemd, libossp_uuid
+-      , pkg-config, libxml2, tzdata, libkrb5, substituteAll, darwin
+-      , linux-pam
+-      , bison, flex, perl, docbook_xml_dtd_45, docbook-xsl-nons, libxslt
+-
+-      # This is important to obtain a version of `libpq` that does not depend on systemd.
+-      , systemdSupport ? lib.meta.availableOn stdenv.hostPlatform systemd && !stdenv.hostPlatform.isStatic
+-      , enableSystemd ? null
+-      , gssSupport ? with stdenv.hostPlatform; !isWindows && !isStatic
+-
+-      # for postgresql.pkgs
+-      , self, newScope, buildEnv
+-
+-      # source specification
+-      , version, hash, muslPatches ? {}
+-
+-      # for tests
+-      , testers, nixosTests
+-
+-      # JIT
+-      , jitSupport
+-      , nukeReferences, patchelf, llvmPackages
+-
+-      # PL/Python
+-      , pythonSupport ? false
+-      , python3
+-
+-      # detection of crypt fails when using llvm stdenv, so we add it manually
+-      # for <13 (where it got removed: https://github.com/postgres/postgres/commit/c45643d618e35ec2fe91438df15abd4f3c0d85ca)
+-      , libxcrypt
+-    } @args:
+-  let
+-    atLeast = lib.versionAtLeast version;
+-    olderThan = lib.versionOlder version;
+-    lz4Enabled = atLeast "14";
+-    zstdEnabled = atLeast "15";
+-
+-    systemdSupport' = if enableSystemd == null then systemdSupport else (lib.warn "postgresql: argument enableSystemd is deprecated, please use systemdSupport instead." enableSystemd);
+-
+-    pname = "postgresql";
+-
+-    stdenv' = if jitSupport then llvmPackages.stdenv else stdenv;
+-  in stdenv'.mkDerivation (finalAttrs: {
+-    inherit version;
+-    pname = pname + lib.optionalString jitSupport "-jit";
+-
+-    src = fetchurl {
+-      url = "mirror://postgresql/source/v${version}/${pname}-${version}.tar.bz2";
+-      inherit hash;
+-    };
+-
+-    hardeningEnable = lib.optionals (!stdenv'.cc.isClang) [ "pie" ];
+-
+-    outputs = [ "out" "lib" "doc" "man" ];
+-    setOutputFlags = false; # $out retains configureFlags :-/
+-
+-    buildInputs = [
+-      zlib
+-      readline
+-      openssl
+-      libxml2
+-      icu
+-    ]
+-      ++ lib.optionals (olderThan "13") [ libxcrypt ]
+-      ++ lib.optionals jitSupport [ llvmPackages.llvm ]
+-      ++ lib.optionals lz4Enabled [ lz4 ]
+-      ++ lib.optionals zstdEnabled [ zstd ]
+-      ++ lib.optionals systemdSupport' [ systemd ]
+-      ++ lib.optionals pythonSupport [ python3 ]
+-      ++ lib.optionals gssSupport [ libkrb5 ]
+-      ++ lib.optionals stdenv'.isLinux [ linux-pam ]
+-      ++ lib.optionals (!stdenv'.isDarwin) [ libossp_uuid ];
+-
+-    nativeBuildInputs = [
+-      makeWrapper
+-      pkg-config
+-    ]
+-    ++ lib.optionals jitSupport [ llvmPackages.llvm.dev nukeReferences patchelf ]
+-    ++ lib.optionals (atLeast "17") [ bison flex perl docbook_xml_dtd_45 docbook-xsl-nons libxslt ];
+-
+-    enableParallelBuilding = true;
+-
+-    separateDebugInfo = true;
+-
+-    buildFlags = [ "world" ];
+-
+-    # Makes cross-compiling work when xml2-config can't be executed on the host.
+-    # Fixed upstream in https://github.com/postgres/postgres/commit/0bc8cebdb889368abdf224aeac8bc197fe4c9ae6
+-    env.NIX_CFLAGS_COMPILE = lib.optionalString (olderThan "13") "-I${libxml2.dev}/include/libxml2";
+-
+-    configureFlags = [
+-      "--with-openssl"
+-      "--with-libxml"
+-      "--with-icu"
+-      "--sysconfdir=/etc"
+-      "--libdir=$(lib)/lib"
+-      "--with-system-tzdata=${tzdata}/share/zoneinfo"
+-      "--enable-debug"
+-      (lib.optionalString systemdSupport' "--with-systemd")
+-      (if stdenv'.isDarwin then "--with-uuid=e2fs" else "--with-ossp-uuid")
+-    ] ++ lib.optionals lz4Enabled [ "--with-lz4" ]
+-      ++ lib.optionals zstdEnabled [ "--with-zstd" ]
+-      ++ lib.optionals gssSupport [ "--with-gssapi" ]
+-      ++ lib.optionals pythonSupport [ "--with-python" ]
+-      ++ lib.optionals jitSupport [ "--with-llvm" ]
+-      ++ lib.optionals stdenv'.isLinux [ "--with-pam" ];
+-
+-    patches = [
+-      (if atLeast "16" then ./patches/relative-to-symlinks-16+.patch else ./patches/relative-to-symlinks.patch)
+-      ./patches/less-is-more.patch
+-      ./patches/paths-for-split-outputs.patch
+-      ./patches/specify_pkglibdir_at_runtime.patch
+-      ./patches/paths-with-postgresql-suffix.patch
+-
+-      (substituteAll {
+-        src = ./patches/locale-binary-path.patch;
+-        locale = "${if stdenv.isDarwin then darwin.adv_cmds else lib.getBin stdenv.cc.libc}/bin/locale";
+-      })
+-
+-    ] ++ lib.optionals stdenv'.hostPlatform.isMusl (
+-      # Using fetchurl instead of fetchpatch on purpose: https://github.com/NixOS/nixpkgs/issues/240141
+-      map fetchurl (lib.attrValues muslPatches)
+-    ) ++ lib.optionals stdenv'.isLinux  [
+-      (if atLeast "13" then ./patches/socketdir-in-run-13+.patch else ./patches/socketdir-in-run.patch)
+-    ];
+-
+-    installTargets = [ "install-world" ];
+-
+-    postPatch = ''
+-      # Hardcode the path to pgxs so pg_config returns the path in $out
+-      substituteInPlace "src/common/config_info.c" --subst-var out
+-    '' + lib.optionalString jitSupport ''
+-        # Force lookup of jit stuff in $out instead of $lib
+-        substituteInPlace src/backend/jit/jit.c --replace pkglib_path \"$out/lib\"
+-        substituteInPlace src/backend/jit/llvm/llvmjit.c --replace pkglib_path \"$out/lib\"
+-        substituteInPlace src/backend/jit/llvm/llvmjit_inline.cpp --replace pkglib_path \"$out/lib\"
+-    '';
+-
+-    postInstall =
+-      ''
+-        moveToOutput "lib/pgxs" "$out" # looks strange, but not deleting it
+-        moveToOutput "lib/libpgcommon*.a" "$out"
+-        moveToOutput "lib/libpgport*.a" "$out"
+-        moveToOutput "lib/libecpg*" "$out"
+-
+-        # Prevent a retained dependency on gcc-wrapper.
+-        substituteInPlace "$out/lib/pgxs/src/Makefile.global" --replace ${stdenv'.cc}/bin/ld ld
+-
+-        if [ -z "''${dontDisableStatic:-}" ]; then
+-          # Remove static libraries in case dynamic are available.
+-          for i in $out/lib/*.a $lib/lib/*.a; do
+-            name="$(basename "$i")"
+-            ext="${stdenv'.hostPlatform.extensions.sharedLibrary}"
+-            if [ -e "$lib/lib/''${name%.a}$ext" ] || [ -e "''${i%.a}$ext" ]; then
+-              rm "$i"
+-            fi
+-          done
+-        fi
+-      '' + lib.optionalString jitSupport ''
+-        # Move the bitcode and libllvmjit.so library out of $lib; otherwise, every client that
+-        # depends on libpq.so will also have libLLVM.so in its closure too, bloating it
+-        moveToOutput "lib/bitcode" "$out"
+-        moveToOutput "lib/llvmjit*" "$out"
+-
+-        # In the case of JIT support, prevent a retained dependency on clang-wrapper
+-        substituteInPlace "$out/lib/pgxs/src/Makefile.global" --replace ${stdenv'.cc}/bin/clang clang
+-        nuke-refs $out/lib/llvmjit_types.bc $(find $out/lib/bitcode -type f)
+-
+-        # Stop out depending on the default output of llvm
+-        substituteInPlace $out/lib/pgxs/src/Makefile.global \
+-          --replace ${llvmPackages.llvm.out}/bin "" \
+-          --replace '$(LLVM_BINPATH)/' ""
+-
+-        # Stop out depending on the -dev output of llvm
+-        substituteInPlace $out/lib/pgxs/src/Makefile.global \
+-          --replace ${llvmPackages.llvm.dev}/bin/llvm-config llvm-config \
+-          --replace -I${llvmPackages.llvm.dev}/include ""
+-
+-        ${lib.optionalString (!stdenv'.isDarwin) ''
+-          # Stop lib depending on the -dev output of llvm
+-          rpath=$(patchelf --print-rpath $out/lib/llvmjit.so)
+-          nuke-refs -e $out $out/lib/llvmjit.so
+-          # Restore the correct rpath
+-          patchelf $out/lib/llvmjit.so --set-rpath "$rpath"
+-        ''}
+-      '';
+-
+-    postFixup = lib.optionalString (!stdenv'.isDarwin && stdenv'.hostPlatform.libc == "glibc")
+-      ''
+-        # initdb needs access to "locale" command from glibc.
+-        wrapProgram $out/bin/initdb --prefix PATH ":" ${glibc.bin}/bin
+-      '';
+-
+-    doCheck = !stdenv'.isDarwin;
+-    # autodetection doesn't seem to able to find this, but it's there.
+-    checkTarget = "check";
+-
+-    disallowedReferences = [ stdenv'.cc ];
+-
+-    passthru = let
+-      this = self.callPackage generic args;
+-      jitToggle = this.override {
+-        jitSupport = !jitSupport;
+-      };
+-    in
+-    {
+-      psqlSchema = lib.versions.major version;
+-
+-      withJIT = if jitSupport then this else jitToggle;
+-      withoutJIT = if jitSupport then jitToggle else this;
+-
+-      dlSuffix = if olderThan "16" then ".so" else stdenv.hostPlatform.extensions.sharedLibrary;
+-
+-      pkgs = let
+-        scope = {
+-          inherit jitSupport;
+-          inherit (llvmPackages) llvm;
+-          postgresql = this;
+-          stdenv = stdenv';
+-        };
+-        newSelf = self // scope;
+-        newSuper = { callPackage = newScope (scope // this.pkgs); };
+-      in import ./ext newSelf newSuper;
+-
+-      withPackages = postgresqlWithPackages {
+-                       inherit makeWrapper buildEnv;
+-                       postgresql = this;
+-                     }
+-                     this.pkgs;
+-
+-      tests = {
+-        postgresql-wal-receiver = import ../../../../nixos/tests/postgresql-wal-receiver.nix {
+-          inherit (stdenv) system;
+-          pkgs = self;
+-          package = this;
+-        };
+-        pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
+-      } // lib.optionalAttrs jitSupport {
+-        postgresql-jit = import ../../../../nixos/tests/postgresql-jit.nix {
+-          inherit (stdenv) system;
+-          pkgs = self;
+-          package = this;
+-        };
+-      };
+-    };
+-
+-    meta = with lib; {
+-      homepage    = "https://www.postgresql.org";
+-      description = "Powerful, open source object-relational database system";
+-      license     = licenses.postgresql;
+-      changelog   = "https://www.postgresql.org/docs/release/${finalAttrs.version}/";
+-      maintainers = with maintainers; [ thoughtpolice danbst globin ivan ma27 wolfgangwalther ];
+-      pkgConfigModules = [ "libecpg" "libecpg_compat" "libpgtypes" "libpq" ];
+-      platforms   = platforms.unix;
+-
+-      # JIT support doesn't work with cross-compilation. It is attempted to build LLVM-bytecode
+-      # (`%.bc` is the corresponding `make(1)`-rule) for each sub-directory in `backend/` for
+-      # the JIT apparently, but with a $(CLANG) that can produce binaries for the build, not the
+-      # host-platform.
+-      #
+-      # I managed to get a cross-build with JIT support working with
+-      # `depsBuildBuild = [ llvmPackages.clang ] ++ buildInputs`, but considering that the
+-      # resulting LLVM IR isn't platform-independent this doesn't give you much.
+-      # In fact, I tried to test the result in a VM-test, but as soon as JIT was used to optimize
+-      # a query, postgres would coredump with `Illegal instruction`.
+-      broken = (jitSupport && stdenv.hostPlatform != stdenv.buildPlatform)
+-        # Allmost all tests fail FATAL errors for v12 and v13
+-        || (jitSupport && stdenv.hostPlatform.isMusl && olderThan "14");
+-    };
+-  });
+-
+-  postgresqlWithPackages = { postgresql, makeWrapper, buildEnv }: pkgs: f: buildEnv {
+-    name = "postgresql-and-plugins-${postgresql.version}";
+-    paths = f pkgs ++ [
+-        postgresql
+-        postgresql.lib
+-        postgresql.man   # in case user installs this into environment
+-    ];
+-    nativeBuildInputs = [ makeWrapper ];
+-
+-
+-    # We include /bin to ensure the $out/bin directory is created, which is
+-    # needed because we'll be removing the files from that directory in postBuild
+-    # below. See #22653
+-    pathsToLink = ["/" "/bin"];
+-
+-    # Note: the duplication of executables is about 4MB size.
+-    # So a nicer solution was patching postgresql to allow setting the
+-    # libdir explicitly.
+-    postBuild = ''
+-      mkdir -p $out/bin
+-      rm $out/bin/{pg_config,postgres,pg_ctl}
+-      cp --target-directory=$out/bin ${postgresql}/bin/{postgres,pg_config,pg_ctl}
+-      wrapProgram $out/bin/postgres --set NIX_PGLIBDIR $out/lib
+-    '';
+-
+-    passthru.version = postgresql.version;
+-    passthru.psqlSchema = postgresql.psqlSchema;
+-  };
+-
+-in
+-# passed by <major>.nix
+-versionArgs:
+-# passed by default.nix
+-{ self, ... } @defaultArgs:
+-self.callPackage generic (defaultArgs // versionArgs)
+diff --git a/nix/postgresql/patches/less-is-more.patch b/nix/postgresql/patches/less-is-more.patch
+deleted file mode 100644
+index a72d1a2..0000000
+--- a/nix/postgresql/patches/less-is-more.patch
++++ /dev/null
+@@ -1,11 +0,0 @@
+---- a/src/include/fe_utils/print.h
+-+++ b/src/include/fe_utils/print.h
+-@@ -18,7 +18,7 @@
+- 
+- /* This is not a particularly great place for this ... */
+- #ifndef __CYGWIN__
+--#define DEFAULT_PAGER "more"
+-+#define DEFAULT_PAGER "less"
+- #else
+- #define DEFAULT_PAGER "less"
+- #endif
+diff --git a/nix/postgresql/patches/locale-binary-path.patch b/nix/postgresql/patches/locale-binary-path.patch
+deleted file mode 100644
+index 8068683..0000000
+--- a/nix/postgresql/patches/locale-binary-path.patch
++++ /dev/null
+@@ -1,11 +0,0 @@
+---- a/src/backend/commands/collationcmds.c
+-+++ b/src/backend/commands/collationcmds.c
+-@@ -611,7 +611,7 @@ pg_import_system_collations(PG_FUNCTION_ARGS)
+- 		aliases = (CollAliasData *) palloc(maxaliases * sizeof(CollAliasData));
+- 		naliases = 0;
+- 
+--		locale_a_handle = OpenPipeStream("locale -a", "r");
+-+		locale_a_handle = OpenPipeStream("@locale@ -a", "r");
+- 		if (locale_a_handle == NULL)
+- 			ereport(ERROR,
+- 					(errcode_for_file_access(),
+diff --git a/nix/postgresql/patches/paths-for-split-outputs.patch b/nix/postgresql/patches/paths-for-split-outputs.patch
+deleted file mode 100644
+index 2134f7e..0000000
+--- a/nix/postgresql/patches/paths-for-split-outputs.patch
++++ /dev/null
+@@ -1,11 +0,0 @@
+---- a/src/common/config_info.c
+-+++ b/src/common/config_info.c
+-@@ -118,7 +118,7 @@
+- 	i++;
+-
+- 	configdata[i].name = pstrdup("PGXS");
+-+	strlcpy(path, "@out@/lib", sizeof(path));
+--	get_pkglib_path(my_exec_path, path);
+- 	strlcat(path, "/pgxs/src/makefiles/pgxs.mk", sizeof(path));
+- 	cleanup_path(path);
+- 	configdata[i].setting = pstrdup(path);
+diff --git a/nix/postgresql/patches/paths-with-postgresql-suffix.patch b/nix/postgresql/patches/paths-with-postgresql-suffix.patch
+deleted file mode 100644
+index 04d2f55..0000000
+--- a/nix/postgresql/patches/paths-with-postgresql-suffix.patch
++++ /dev/null
+@@ -1,41 +0,0 @@
+-Nix outputs put the `name' in each store path like
+-/nix/store/...-<name>. This was confusing the Postgres make script
+-because it thought its data directory already had postgresql in its
+-directory. This lead to Postgres installing all of its fils in
+-$out/share. To fix this, we just look for postgres or psql in the part
+-after the / using make's notdir.
+-
+----
+---- a/src/Makefile.global.in
+-+++ b/src/Makefile.global.in
+-@@ -102,15 +102,15 @@ datarootdir := @datarootdir@
+- bindir := @bindir@
+- 
+- datadir := @datadir@
+--ifeq "$(findstring pgsql, $(datadir))" ""
+--ifeq "$(findstring postgres, $(datadir))" ""
+-+ifeq "$(findstring pgsql, $(notdir $(datadir)))" ""
+-+ifeq "$(findstring postgres, $(notdir $(datadir)))" ""
+- override datadir := $(datadir)/postgresql
+- endif
+- endif
+- 
+- sysconfdir := @sysconfdir@
+--ifeq "$(findstring pgsql, $(sysconfdir))" ""
+--ifeq "$(findstring postgres, $(sysconfdir))" ""
+-+ifeq "$(findstring pgsql, $(notdir $(sysconfdir)))" ""
+-+ifeq "$(findstring postgres, $(notdir $(sysconfdir)))" ""
+- override sysconfdir := $(sysconfdir)/postgresql
+- endif
+- endif
+-@@ -136,8 +136,8 @@ endif
+- mandir := @mandir@
+- 
+- docdir := @docdir@
+--ifeq "$(findstring pgsql, $(docdir))" ""
+--ifeq "$(findstring postgres, $(docdir))" ""
+-+ifeq "$(findstring pgsql, $(notdir $(docdir)))" ""
+-+ifeq "$(findstring postgres, $(notdir $(docdir)))" ""
+- override docdir := $(docdir)/postgresql
+- endif
+- endif
+diff --git a/nix/postgresql/patches/relative-to-symlinks-16+.patch b/nix/postgresql/patches/relative-to-symlinks-16+.patch
+deleted file mode 100644
+index 996072e..0000000
+--- a/nix/postgresql/patches/relative-to-symlinks-16+.patch
++++ /dev/null
+@@ -1,13 +0,0 @@
+-On NixOS we *want* stuff relative to symlinks.
+----
+---- a/src/common/exec.c
+-+++ b/src/common/exec.c
+-@@ -238,6 +238,8 @@
+- static int
+- normalize_exec_path(char *path)
+- {
+-+	return 0;
+-+
+- 	/*
+- 	 * We used to do a lot of work ourselves here, but now we just let
+- 	 * realpath(3) do all the heavy lifting.
+diff --git a/nix/postgresql/patches/relative-to-symlinks.patch b/nix/postgresql/patches/relative-to-symlinks.patch
+deleted file mode 100644
+index c9b199b..0000000
+--- a/nix/postgresql/patches/relative-to-symlinks.patch
++++ /dev/null
+@@ -1,13 +0,0 @@
+-On NixOS we *want* stuff relative to symlinks.
+----
+---- a/src/common/exec.c
+-+++ b/src/common/exec.c
+-@@ -218,6 +218,8 @@
+- static int
+- resolve_symlinks(char *path)
+- {
+-+	return 0;
+-+
+- #ifdef HAVE_READLINK
+- 	struct stat buf;
+- 	char		orig_wd[MAXPGPATH],
+diff --git a/nix/postgresql/patches/socketdir-in-run-13+.patch b/nix/postgresql/patches/socketdir-in-run-13+.patch
+deleted file mode 100644
+index fd808b6..0000000
+--- a/nix/postgresql/patches/socketdir-in-run-13+.patch
++++ /dev/null
+@@ -1,11 +0,0 @@
+---- a/src/include/pg_config_manual.h
+-+++ b/src/include/pg_config_manual.h
+-@@ -201,7 +201,7 @@
+-  * support them yet.
+-  */
+- #ifndef WIN32
+--#define DEFAULT_PGSOCKET_DIR  "/tmp"
+-+#define DEFAULT_PGSOCKET_DIR  "/run/postgresql"
+- #else
+- #define DEFAULT_PGSOCKET_DIR ""
+- #endif
+diff --git a/nix/postgresql/patches/socketdir-in-run.patch b/nix/postgresql/patches/socketdir-in-run.patch
+deleted file mode 100644
+index 4932ef6..0000000
+--- a/nix/postgresql/patches/socketdir-in-run.patch
++++ /dev/null
+@@ -1,11 +0,0 @@
+---- a/src/include/pg_config_manual.h
+-+++ b/src/include/pg_config_manual.h
+-@@ -179,7 +179,7 @@
+-  * here's where to twiddle it.  You can also override this at runtime
+-  * with the postmaster's -k switch.
+-  */
+--#define DEFAULT_PGSOCKET_DIR  "/tmp"
+-+#define DEFAULT_PGSOCKET_DIR  "/run/postgresql"
+- 
+- /*
+-  * This is the default event source for Windows event log.
+diff --git a/nix/postgresql/patches/specify_pkglibdir_at_runtime.patch b/nix/postgresql/patches/specify_pkglibdir_at_runtime.patch
+deleted file mode 100644
+index b94fc9e..0000000
+--- a/nix/postgresql/patches/specify_pkglibdir_at_runtime.patch
++++ /dev/null
+@@ -1,28 +0,0 @@
+---- a/src/port/path.c
+-+++ b/src/port/path.c
+-@@ -714,7 +714,11 @@
+- void
+- get_lib_path(const char *my_exec_path, char *ret_path)
+- {
+--	make_relative_path(ret_path, LIBDIR, PGBINDIR, my_exec_path);
+-+	char const * const nix_pglibdir = getenv("NIX_PGLIBDIR");
+-+	if(nix_pglibdir == NULL)
+-+		make_relative_path(ret_path, LIBDIR, PGBINDIR, my_exec_path);
+-+	else
+-+		make_relative_path(ret_path, nix_pglibdir, PGBINDIR, my_exec_path);
+- }
+- 
+- /*
+-@@ -723,7 +727,11 @@
+- void
+- get_pkglib_path(const char *my_exec_path, char *ret_path)
+- {
+--	make_relative_path(ret_path, PKGLIBDIR, PGBINDIR, my_exec_path);
+-+	char const * const nix_pglibdir = getenv("NIX_PGLIBDIR");
+-+	if(nix_pglibdir == NULL)
+-+		make_relative_path(ret_path, PKGLIBDIR, PGBINDIR, my_exec_path);
+-+	else
+-+		make_relative_path(ret_path, nix_pglibdir, PGBINDIR, my_exec_path);
+- }
+- 
+- /*
+diff --git a/nix/supabase_vault.nix b/nix/supabase_vault.nix
+deleted file mode 100644
+index 109f1fa..0000000
+--- a/nix/supabase_vault.nix
++++ /dev/null
+@@ -1,17 +0,0 @@
+-{ stdenv, libsodium, postgresql }:
+-
+-stdenv.mkDerivation rec {
+-  name = "supabase_vault";
+-
+-  buildInputs = [ libsodium postgresql ];
+-
+-  src = ../.;
+-
+-  installPhase = ''
+-    mkdir -p $out/{lib,share/postgresql/extension}
+-
+-    install -D *${postgresql.dlSuffix} $out/lib
+-    install -D -t $out/share/postgresql/extension sql/*.sql
+-    install -D -t $out/share/postgresql/extension *.control
+-  '';
+-}
+diff --git a/nix/withTmpDb.sh.in b/nix/withTmpDb.sh.in
+deleted file mode 100644
+index edbb76d..0000000
+--- a/nix/withTmpDb.sh.in
++++ /dev/null
+@@ -1,30 +0,0 @@
+-#!/usr/bin/env bash
+-
+-set -euo pipefail
+-
+-export PATH=@POSTGRESQL_PATH@/bin:"$PATH"
+-
+-tmpdir="$(mktemp -d)"
+-
+-export PGDATA="$tmpdir"
+-export PGHOST="$tmpdir"
+-export PGUSER=postgres
+-export PGDATABASE=postgres
+-
+-trap 'pg_ctl stop -m i && rm -rf "$tmpdir"' sigint sigterm exit
+-
+-PGTZ=UTC initdb --no-locale --encoding=UTF8 --nosync -U "$PGUSER"
+-VAULT_GETKEY_SCRIPT_PATH="$tmpdir/vault_getkey.sh"
+-
+-options="-F -c listen_addresses=\"\" -c shared_preload_libraries=pgsodium,supabase_vault -c pgsodium.getkey_script=$VAULT_GETKEY_SCRIPT_PATH -c vault.getkey_script=$VAULT_GETKEY_SCRIPT_PATH -k $PGDATA"
+-
+-echo "echo 0000000000000000000000000000000000000000000000000000000000000000" > "$VAULT_GETKEY_SCRIPT_PATH"
+-chmod +x "$VAULT_GETKEY_SCRIPT_PATH"
+-
+-pg_ctl start -o "$options"
+-
+-createdb contrib_regression
+-
+-psql -v ON_ERROR_STOP=1 -f test/fixtures.sql -d contrib_regression
+-
+-"$@"
+diff --git a/psql.sh b/psql.sh
+new file mode 100755
+index 0000000..4ecd1de
+--- /dev/null
++++ b/psql.sh
+@@ -0,0 +1,30 @@
++version=$1
++shift
++
++DB_HOST="vault-test-db-$version"
++DB_NAME="postgres"
++SU="postgres"
++EXEC="docker exec $DB_HOST"
++TAG="vault/test-$version"
++CONFIG="-c shared_preload_libraries=pgsodium -c pgsodium.getkey_script=/pgsodium/getkey_scripts/pgsodium_getkey_urandom.sh"
++EXPORT=6789
++
++echo building test image $DB_HOST
++docker build . -t $TAG --build-arg "version=$version"
++
++echo running test container
++docker run \
++	   -v `pwd`test.sql:/vault/test.sql \
++	   -e POSTGRES_HOST_AUTH_METHOD=trust \
++	   -d --name "$DB_HOST" $TAG $CONFIG
++
++echo waiting for database to accept connections
++until
++    $EXEC \
++        psql -o /dev/null -t -q -U "$SU" \
++        -c 'select pg_sleep(1)' \
++        2>/dev/null;
++do sleep 1;
++done
++
++docker exec -it $DB_HOST psql -U "$SU" $@
+diff --git a/results/test.out b/results/test.out
+deleted file mode 100644
+index 28abe9b..0000000
+--- a/results/test.out
++++ /dev/null
+@@ -1,102 +0,0 @@
+-select no_plan();
+- no_plan 
+----------
+-(0 rows)
+-
+-do $$
+-select vault.create_secret (
+-	's3kr3t_k3y', 'a_name', 'this is the foo secret key');
+-$$;
+-ERROR:  syntax error at or near "select"
+-LINE 2: select vault.create_secret (
+-        ^
+-SELECT results_eq(
+-    $$
+-    SELECT decrypted_secret = 's3kr3t_k3y', description = 'this is the foo secret key'
+-    FROM vault.decrypted_secrets WHERE name = 'a_name';
+-    $$,
+-    $$VALUES (true, true)$$,
+-    'can select from masking view with custom key');
+-                           results_eq                            
+------------------------------------------------------------------
+- not ok 1 - can select from masking view with custom key        +
+- # Failed test 1: "can select from masking view with custom key"+
+- #     Results differ beginning at row 1:                       +
+- #         have: NULL                                           +
+- #         want: (t,t)
+-(1 row)
+-
+-SELECT lives_ok(
+-	$test$
+-	select vault.update_secret(
+-	    (select id from vault.secrets where name = 'a_name'), new_name:='a_new_name',
+-	    new_secret:='new_s3kr3t_k3y', new_description:='this is the bar key')
+-	$test$,
+-	'can update name, secret and description'
+-	);
+-                    lives_ok                    
+-------------------------------------------------
+- ok 2 - can update name, secret and description
+-(1 row)
+-
+-TRUNCATE vault.secrets;
+-set role bob;
+-do $$
+-select vault.create_secret ('foo', 'bar', 'baz');
+-$$;
+-ERROR:  syntax error at or near "select"
+-LINE 2: select vault.create_secret ('foo', 'bar', 'baz');
+-        ^
+-select results_eq(
+-	$test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description FROM vault.decrypted_secrets
+-    WHERE name = 'bar'
+-    $test$,
+-    $results$values ('foo', 'bar', 'baz')$results$,
+-     'bob can query a secret');
+-                results_eq                 
+--------------------------------------------
+- not ok 3 - bob can query a secret        +
+- # Failed test 3: "bob can query a secret"+
+- #     Results differ beginning at row 1: +
+- #         have: NULL                     +
+- #         want: (foo,bar,baz)
+-(1 row)
+-
+-select lives_ok(
+-	$test$
+-	select vault.update_secret(
+-    (select id from vault.secrets where name = 'bar'),
+-    'fooz',
+-    'barz',
+-    'bazz')
+-	$test$,
+-     'bob can update a secret');
+-            lives_ok            
+---------------------------------
+- ok 4 - bob can update a secret
+-(1 row)
+-
+-select results_eq(
+-    $test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description
+-    FROM vault.decrypted_secrets
+-    $test$,
+-    $results$values ('fooz', 'barz', 'bazz')$results$,
+-     'bob can query an updated secret');
+-                     results_eq                     
+-----------------------------------------------------
+- not ok 5 - bob can query an updated secret        +
+- # Failed test 5: "bob can query an updated secret"+
+- #     Results differ beginning at row 1:          +
+- #         have: NULL                              +
+- #         want: (fooz,barz,bazz)
+-(1 row)
+-
+-select * from finish();
+-                finish                
+---------------------------------------
+- 1..5
+- # Looks like you failed 3 tests of 5
+-(2 rows)
+-
+diff --git a/shell.nix b/shell.nix
+deleted file mode 100644
+index e21cb68..0000000
+--- a/shell.nix
++++ /dev/null
+@@ -1,36 +0,0 @@
+-with import (builtins.fetchTarball {
+-    name = "24.05"; # May 31 2024
+-    url = "https://github.com/NixOS/nixpkgs/archive/refs/tags/24.05.tar.gz";
+-    sha256 = "sha256:1lr1h35prqkd1mkmzriwlpvxcb34kmhc9dnr48gkm8hh089hifmx";
+-}) {};
+-mkShell {
+-  buildInputs =
+-    let
+-      ourPg = callPackage ./nix/postgresql {
+-        inherit lib;
+-        inherit stdenv;
+-        inherit fetchurl;
+-        inherit makeWrapper;
+-        inherit callPackage;
+-      };
+-      supportedPgVersions = [
+-        postgresql_13
+-        postgresql_14
+-        postgresql_15
+-        postgresql_16
+-        ourPg.postgresql_17
+-      ];
+-      pgWithExt = { pg }: pg.withPackages (p: [
+-        (callPackage ./nix/pgsodium.nix { postgresql = pg; })
+-        (callPackage ./nix/supabase_vault.nix { postgresql = pg; })
+-        (callPackage ./nix/pgtap.nix { postgresql = pg; })
+-      ]);
+-      extAll = map (x: callPackage ./nix/pgScript.nix { postgresql = pgWithExt { pg = x; }; }) supportedPgVersions;
+-    in
+-    [
+-      extAll
+-    ];
+-  shellHook = ''
+-    export HISTFILE=.history
+-  '';
+-}
+diff --git a/sql/supabase_vault--0.2.8--0.3.0.sql b/sql/supabase_vault--0.2.8--0.3.0.sql
+deleted file mode 100644
+index 50bd6e4..0000000
+--- a/sql/supabase_vault--0.2.8--0.3.0.sql
++++ /dev/null
+@@ -1,132 +0,0 @@
+-CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
+-RETURNS bytea
+-AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_encrypt_by_id'
+-LANGUAGE c IMMUTABLE;
+-
+-CREATE OR REPLACE FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
+-RETURNS bytea
+-AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_decrypt_by_id'
+-LANGUAGE c IMMUTABLE;
+-
+-CREATE OR REPLACE FUNCTION vault._crypto_aead_det_noncegen()
+-RETURNS bytea
+-AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_noncegen'
+-LANGUAGE c IMMUTABLE;
+-
+-DO $$
+-BEGIN
+-  SET search_path = '';
+-
+-  SECURITY LABEL ON COLUMN vault.secrets.secret IS NULL;
+-
+-  DROP TRIGGER IF EXISTS secrets_encrypt_secret_trigger_secret ON vault.secrets;
+-
+-  DROP FUNCTION IF EXISTS vault.secrets_encrypt_secret_secret;
+-
+-  IF EXISTS (SELECT FROM vault.secrets) THEN
+-    UPDATE vault.decrypted_secrets s
+-    SET
+-      secret = encode(vault._crypto_aead_det_encrypt(
+-                 message := convert_to(decrypted_secret, 'utf8'),
+-                 additional := convert_to(s.id || s.description || (s.created_at at time zone 'utc') || (s.updated_at at time zone 'utc'), 'utf8'),
+-                 key_id := 0,
+-                 context := 'pgsodium'::bytea,
+-                 nonce := s.nonce
+-               ), 'base64');
+-  END IF;
+-
+-  DROP VIEW IF EXISTS vault.decrypted_secrets;
+-
+-  ALTER TABLE vault.secrets DROP IF EXISTS key_id;
+-END
+-$$;
+-
+-ALTER TABLE vault.secrets ALTER nonce SET DEFAULT vault._crypto_aead_det_noncegen();
+-
+-CREATE VIEW vault.decrypted_secrets AS
+-SELECT s.id,
+-  s.name,
+-  s.description,
+-  s.secret,
+-  convert_from(
+-    vault._crypto_aead_det_decrypt(
+-      message := decode(s.secret, 'base64'::text),
+-      additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
+-      key_id := 0,
+-      context := 'pgsodium'::bytea,
+-      nonce := s.nonce
+-    ),
+-    'utf8'::name
+-  ) AS decrypted_secret,
+-  s.nonce,
+-  s.created_at,
+-  s.updated_at
+-FROM vault.secrets s;
+-
+-GRANT ALL ON vault.decrypted_secrets TO pgsodium_keyiduser;
+-
+-CREATE OR REPLACE FUNCTION vault.create_secret(
+-  new_secret text,
+-  new_name text = NULL,
+-  new_description text = '',
+-  -- unused
+-  new_key_id uuid = NULL
+-)
+-RETURNS uuid
+-LANGUAGE plpgsql
+-SET search_path = ''
+-AS $$
+-DECLARE
+-  rec record;
+-BEGIN
+-  INSERT INTO vault.secrets (secret, name, description)
+-  VALUES (
+-    new_secret,
+-    new_name,
+-    new_description
+-  )
+-  RETURNING * INTO rec;
+-  UPDATE vault.secrets s
+-  SET secret = encode(vault._crypto_aead_det_encrypt(
+-    message := convert_to(rec.secret, 'utf8'),
+-    additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
+-    key_id := 0,
+-    context := 'pgsodium'::bytea,
+-    nonce := rec.nonce
+-  ), 'base64')
+-  WHERE id = rec.id;
+-  RETURN rec.id;
+-END
+-$$;
+-
+-CREATE OR REPLACE FUNCTION vault.update_secret(
+-  secret_id uuid,
+-  new_secret text = NULL,
+-  new_name text = NULL,
+-  new_description text = NULL,
+-  -- unused
+-  new_key_id uuid = NULL
+-)
+-RETURNS void
+-LANGUAGE plpgsql
+-SET search_path = ''
+-AS $$
+-DECLARE
+-  decrypted_secret text := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = secret_id);
+-BEGIN
+-  UPDATE vault.secrets s
+-  SET
+-    secret = CASE WHEN new_secret IS NULL THEN s.secret
+-                  ELSE encode(vault._crypto_aead_det_encrypt(
+-                    message := convert_to(new_secret, 'utf8'),
+-                    additional := convert_to(s.id || coalesce(new_description, s.description) || (s.created_at at time zone 'utc') || (now() at time zone 'utc'), 'utf8'),
+-                    key_id := 0,
+-                    context := 'pgsodium'::bytea,
+-                    nonce := s.nonce
+-                  ), 'base64') END,
+-    name = coalesce(new_name, s.name),
+-    description = coalesce(new_description, s.description),
+-    updated_at = now()
+-  WHERE s.id = secret_id;
+-END
+-$$;
+diff --git a/src/crypto_aead_det_xchacha20.c b/src/crypto_aead_det_xchacha20.c
+deleted file mode 100644
+index 8b7df0e..0000000
+--- a/src/crypto_aead_det_xchacha20.c
++++ /dev/null
+@@ -1,134 +0,0 @@
+-#include <sodium.h>
+-#include <string.h>
+-
+-#include "crypto_aead_det_xchacha20.h"
+-
+-static void
+-s2v_dbl256(unsigned char d[32])
+-{
+-    unsigned char t[32];
+-    unsigned char mask;
+-    size_t        i;
+-
+-    memcpy(t, d, 32);
+-    for (i = 0; i < 32; i++) {
+-        t[i] = (unsigned char) (t[i] << 1);
+-    }
+-    for (i = 31; i != 0; i--) {
+-        t[i - 1] |= d[i] >> 7;
+-    }
+-    mask = ~((d[0] >> 7) - 1);
+-    t[30] ^= (0x04 & mask);
+-    t[31] ^= (0x25 & mask);
+-    memcpy(d, t, 32);
+-}
+-
+-static inline void
+-s2v_xor(unsigned char *d, const unsigned char *h, size_t len)
+-{
+-    size_t i;
+-
+-    for (i = 0; i < len; i++) {
+-        d[i] ^= h[i];
+-    }
+-}
+-
+-static void
+-s2v(unsigned char iv[crypto_aead_det_xchacha20_ABYTES], const unsigned char *m, size_t mlen,
+-    const unsigned char *ad, size_t adlen, const unsigned char *nonce, size_t noncelen,
+-    const unsigned char ka[32])
+-{
+-    static const unsigned char zero[crypto_aead_det_xchacha20_ABYTES] = { 0 };
+-    crypto_generichash_state   st;
+-    unsigned char              d[32];
+-
+-    crypto_generichash(d, sizeof d, zero, sizeof zero, ka, sizeof d);
+-
+-    if (ad != NULL && adlen > 0) {
+-        s2v_dbl256(d);
+-        crypto_generichash(iv, crypto_aead_det_xchacha20_ABYTES, ad, adlen, ka, 32);
+-        s2v_xor(d, iv, sizeof d);
+-    }
+-    if (nonce != NULL && noncelen > 0) {
+-        s2v_dbl256(d);
+-        crypto_generichash(iv, crypto_aead_det_xchacha20_ABYTES, nonce, noncelen, ka, 32);
+-        s2v_xor(d, iv, sizeof d);
+-    }
+-
+-    crypto_generichash_init(&st, ka, 32, crypto_aead_det_xchacha20_ABYTES);
+-    if (mlen >= crypto_aead_det_xchacha20_ABYTES) {
+-        crypto_generichash_update(&st, m, mlen - crypto_aead_det_xchacha20_ABYTES);
+-        s2v_xor(d, &m[mlen - crypto_aead_det_xchacha20_ABYTES], crypto_aead_det_xchacha20_KEYBYTES);
+-    } else {
+-        s2v_dbl256(d);
+-        s2v_xor(d, m, mlen);
+-        d[mlen] ^= 0x80;
+-    }
+-    crypto_generichash_update(&st, d, sizeof d);
+-    crypto_generichash_final(&st, iv, crypto_aead_det_xchacha20_ABYTES);
+-}
+-
+-int
+-crypto_aead_det_xchacha20_encrypt_detached(
+-    unsigned char *c, unsigned char mac[crypto_aead_det_xchacha20_ABYTES], const unsigned char *m,
+-    size_t mlen, const unsigned char *ad, size_t adlen, const unsigned char *nonce,
+-    const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES])
+-{
+-    unsigned char subkeys[64], *ka = &subkeys[0], *ke = &subkeys[32];
+-
+-    crypto_generichash(subkeys, sizeof subkeys, NULL, 0, k, crypto_aead_det_xchacha20_KEYBYTES);
+-    s2v(mac, m, mlen, ad, adlen, nonce, crypto_aead_det_xchacha20_NONCEBYTES, ka);
+-    crypto_stream_xchacha20_xor(c, m, mlen, mac, ke);
+-
+-    return 0;
+-}
+-
+-int
+-crypto_aead_det_xchacha20_decrypt_detached(
+-    unsigned char *m, const unsigned char *c, size_t clen,
+-    const unsigned char mac[crypto_aead_det_xchacha20_ABYTES], const unsigned char *ad,
+-    size_t adlen, const unsigned char *nonce,
+-    const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES])
+-{
+-    unsigned char subkeys[64], *ka = &subkeys[0], *ke = &subkeys[32];
+-    unsigned char computed_mac[crypto_aead_det_xchacha20_ABYTES];
+-    const size_t  mlen = clen;
+-
+-    crypto_generichash(subkeys, sizeof subkeys, NULL, 0, k, crypto_aead_det_xchacha20_KEYBYTES);
+-    crypto_stream_xchacha20_xor(m, c, clen, mac, ke);
+-    s2v(computed_mac, m, mlen, ad, adlen, nonce, crypto_aead_det_xchacha20_NONCEBYTES, ka);
+-    if (sodium_memcmp(mac, computed_mac, crypto_aead_det_xchacha20_ABYTES) != 0) {
+-        memset(m, 0, mlen);
+-        return -1;
+-    }
+-    return 0;
+-}
+-
+-int
+-crypto_aead_det_xchacha20_encrypt(unsigned char *c, const unsigned char *m, size_t mlen,
+-                                  const unsigned char *ad, size_t adlen, const unsigned char *nonce,
+-                                  const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES])
+-{
+-    return crypto_aead_det_xchacha20_encrypt_detached(c, c + mlen, m, mlen, ad, adlen, nonce, k);
+-}
+-
+-int
+-crypto_aead_det_xchacha20_decrypt(unsigned char *m, const unsigned char *c, size_t clen,
+-                                  const unsigned char *ad, size_t adlen, const unsigned char *nonce,
+-                                  const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES])
+-{
+-    size_t mlen;
+-
+-    if (clen < crypto_aead_det_xchacha20_ABYTES) {
+-        return -1;
+-    }
+-    mlen = clen - crypto_aead_det_xchacha20_ABYTES;
+-
+-    return crypto_aead_det_xchacha20_decrypt_detached(m, c, mlen, c + mlen, ad, adlen, nonce, k);
+-}
+-
+-void
+-crypto_aead_det_xchacha20_keygen(unsigned char k[crypto_aead_det_xchacha20_KEYBYTES])
+-{
+-    randombytes_buf(k, crypto_aead_det_xchacha20_KEYBYTES);
+-}
+diff --git a/src/crypto_aead_det_xchacha20.h b/src/crypto_aead_det_xchacha20.h
+deleted file mode 100644
+index 91eca9a..0000000
+--- a/src/crypto_aead_det_xchacha20.h
++++ /dev/null
+@@ -1,41 +0,0 @@
+-#ifndef crypto_aead_det_xchacha20_H
+-#define crypto_aead_det_xchacha20_H
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-#include <stdlib.h>
+-
+-#define crypto_aead_det_xchacha20_KEYBYTES 32
+-#define crypto_aead_det_xchacha20_ABYTES 32
+-#define crypto_aead_det_xchacha20_NONCEBYTES 16
+-
+-int crypto_aead_det_xchacha20_encrypt_detached(
+-    unsigned char *c, unsigned char mac[crypto_aead_det_xchacha20_ABYTES], const unsigned char *m,
+-    size_t mlen, const unsigned char *ad, size_t adlen, const unsigned char *nonce,
+-    const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES]);
+-
+-int crypto_aead_det_xchacha20_decrypt_detached(
+-    unsigned char *m, const unsigned char *c, size_t clen,
+-    const unsigned char mac[crypto_aead_det_xchacha20_ABYTES], const unsigned char *ad,
+-    size_t adlen, const unsigned char *nonce,
+-    const unsigned char k[crypto_aead_det_xchacha20_KEYBYTES]);
+-
+-int crypto_aead_det_xchacha20_encrypt(unsigned char *c, const unsigned char *m, size_t mlen,
+-                                      const unsigned char *ad, size_t adlen,
+-                                      const unsigned char *nonce,
+-                                      const unsigned char  k[crypto_aead_det_xchacha20_KEYBYTES]);
+-
+-int crypto_aead_det_xchacha20_decrypt(unsigned char *m, const unsigned char *c, size_t clen,
+-                                      const unsigned char *ad, size_t adlen,
+-                                      const unsigned char *nonce,
+-                                      const unsigned char  k[crypto_aead_det_xchacha20_KEYBYTES]);
+-
+-void crypto_aead_det_xchacha20_keygen(unsigned char k[crypto_aead_det_xchacha20_KEYBYTES]);
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#endif
+diff --git a/src/pgsodium.c b/src/pgsodium.c
+deleted file mode 100644
+index d337fff..0000000
+--- a/src/pgsodium.c
++++ /dev/null
+@@ -1,144 +0,0 @@
+-#include <postgres.h>
+-
+-#include <fmgr.h>
+-#include <sodium.h>
+-
+-#include "crypto_aead_det_xchacha20.h"
+-#include "pgsodium.h"
+-
+-bytea *pgsodium_secret_key = NULL;
+-char *getkey_script = NULL;
+-
+-PG_FUNCTION_INFO_V1 (pgsodium_crypto_aead_det_encrypt_by_id);
+-Datum
+-pgsodium_crypto_aead_det_encrypt_by_id (PG_FUNCTION_ARGS)
+-{
+-	bytea      *message;
+-	bytea      *associated;
+-	unsigned long long key_id;
+-	bytea      *context;
+-	bytea      *key, *nonce;
+-	size_t      result_size;
+-	bytea      *result;
+-	int         success;
+-
+-	ERRORIF (PG_ARGISNULL (0), "%s: message cannot be NULL");
+-	ERRORIF (PG_ARGISNULL (2), "%s: key id cannot be NULL");
+-	ERRORIF (PG_ARGISNULL (3), "%s: key context cannot be NULL");
+-
+-	message = PG_GETARG_BYTEA_PP (0);
+-
+-	if (!PG_ARGISNULL (1))
+-	{
+-		associated = PG_GETARG_BYTEA_PP (1);
+-	}
+-	else
+-	{
+-		associated = NULL;
+-	}
+-
+-	key_id = PG_GETARG_INT64 (2);
+-	context = PG_GETARG_BYTEA_PP (3);
+-
+-	if (!PG_ARGISNULL (4))
+-	{
+-		nonce = PG_GETARG_BYTEA_PP (4);
+-		ERRORIF (VARSIZE_ANY_EXHDR (nonce) !=
+-			crypto_aead_det_xchacha20_NONCEBYTES, "%s: invalid nonce");
+-	}
+-	else
+-	{
+-		nonce = NULL;
+-	}
+-
+-	result_size =
+-		VARSIZE_ANY_EXHDR (message) + crypto_aead_det_xchacha20_ABYTES;
+-	result = _pgsodium_zalloc_bytea (result_size + VARHDRSZ);
+-
+-	key =
+-		pgsodium_derive_helper (key_id, crypto_aead_det_xchacha20_KEYBYTES,
+-		context);
+-
+-	success = crypto_aead_det_xchacha20_encrypt (
+-		PGSODIUM_UCHARDATA (result),
+-		PGSODIUM_UCHARDATA_ANY (message),
+-		VARSIZE_ANY_EXHDR (message),
+-		associated != NULL ? PGSODIUM_UCHARDATA_ANY (associated) : NULL,
+-		associated != NULL ? VARSIZE_ANY_EXHDR (associated) : 0,
+-		nonce != NULL ? PGSODIUM_UCHARDATA_ANY (nonce) : NULL,
+-		PGSODIUM_UCHARDATA_ANY (key));
+-	ERRORIF (success != 0, "%s: failed");
+-	PG_RETURN_BYTEA_P (result);
+-}
+-
+-PG_FUNCTION_INFO_V1 (pgsodium_crypto_aead_det_decrypt_by_id);
+-Datum
+-pgsodium_crypto_aead_det_decrypt_by_id (PG_FUNCTION_ARGS)
+-{
+-	bytea      *ciphertext;
+-	bytea      *associated;
+-	unsigned long long key_id;
+-	bytea      *context;
+-	size_t      result_len;
+-	bytea      *key, *result, *nonce;
+-	int         success;
+-
+-
+-	ERRORIF (PG_ARGISNULL (0), "%s: message cannot be NULL");
+-	ERRORIF (PG_ARGISNULL (2), "%s: key id cannot be NULL");
+-	ERRORIF (PG_ARGISNULL (3), "%s: key context cannot be NULL");
+-
+-	ciphertext = PG_GETARG_BYTEA_PP (0);
+-
+-	if (!PG_ARGISNULL (1))
+-	{
+-		associated = PG_GETARG_BYTEA_PP (1);
+-	}
+-	else
+-	{
+-		associated = NULL;
+-	}
+-
+-	key_id = PG_GETARG_INT64 (2);
+-	context = PG_GETARG_BYTEA_PP (3);
+-
+-	if (!PG_ARGISNULL (4))
+-	{
+-		nonce = PG_GETARG_BYTEA_PP (4);
+-		ERRORIF (VARSIZE_ANY_EXHDR (nonce) !=
+-			crypto_aead_det_xchacha20_NONCEBYTES, "%s: invalid nonce");
+-	}
+-	else
+-	{
+-		nonce = NULL;
+-	}
+-	ERRORIF (VARSIZE_ANY_EXHDR (ciphertext) <=
+-		crypto_aead_det_xchacha20_ABYTES, "%s: invalid message");
+-	result_len =
+-		VARSIZE_ANY_EXHDR (ciphertext) - crypto_aead_det_xchacha20_ABYTES;
+-	result = _pgsodium_zalloc_bytea (result_len + VARHDRSZ);
+-	key =
+-		pgsodium_derive_helper (key_id, crypto_aead_det_xchacha20_KEYBYTES,
+-		context);
+-
+-	success = crypto_aead_det_xchacha20_decrypt (
+-		PGSODIUM_UCHARDATA (result),
+-		PGSODIUM_UCHARDATA_ANY (ciphertext),
+-		VARSIZE_ANY_EXHDR (ciphertext),
+-		associated != NULL ? PGSODIUM_UCHARDATA_ANY (associated) : NULL,
+-		associated != NULL ? VARSIZE_ANY_EXHDR (associated) : 0,
+-		nonce != NULL ? PGSODIUM_UCHARDATA_ANY (nonce) : NULL,
+-		PGSODIUM_UCHARDATA_ANY (key));
+-	ERRORIF (success != 0, "%s: invalid ciphertext");
+-	PG_RETURN_BYTEA_P (result);
+-}
+-
+-PG_FUNCTION_INFO_V1 (pgsodium_crypto_aead_det_noncegen);
+-Datum
+-pgsodium_crypto_aead_det_noncegen (PG_FUNCTION_ARGS)
+-{
+-	int         result_size = VARHDRSZ + crypto_aead_det_xchacha20_NONCEBYTES;
+-	bytea      *result = _pgsodium_zalloc_bytea (result_size);
+-	randombytes_buf (VARDATA (result), crypto_aead_det_xchacha20_NONCEBYTES);
+-	PG_RETURN_BYTEA_P (result);
+-}
+diff --git a/src/pgsodium.h b/src/pgsodium.h
+deleted file mode 100644
+index d7ce965..0000000
+--- a/src/pgsodium.h
++++ /dev/null
+@@ -1,111 +0,0 @@
+-#ifndef PGSODIUM_H
+-#define PGSODIUM_H
+-
+-#include <postgres.h>
+-
+-#include <stdio.h>
+-#include <sodium.h>
+-#include <unistd.h>
+-#include <stdbool.h>
+-#include <stdlib.h>
+-#include <fmgr.h>
+-#if PG_VERSION_NUM >= 160000
+-#include <varatt.h>
+-#endif
+-
+-#define elogn(s) elog(NOTICE, "%s", (s))
+-#define elogn1(s, v) elog(NOTICE, "%s: %lu", (s), (v))
+-
+-#define PG_GETKEY_EXEC "pgsodium_getkey"
+-
+-#define PGSODIUM_UCHARDATA(_vlena) (unsigned char *)VARDATA(_vlena)
+-#define PGSODIUM_CHARDATA(_vlena) (char *)VARDATA(_vlena)
+-
+-#define PGSODIUM_UCHARDATA_ANY(_vlena) (unsigned char *)VARDATA_ANY(_vlena)
+-#define PGSODIUM_CHARDATA_ANY(_vlena) (char *)VARDATA_ANY(_vlena)
+-
+-#define ERRORIF(B, msg)                                                        \
+-    if ((B))                                                                   \
+-        ereport(ERROR, (errcode(ERRCODE_DATA_EXCEPTION), errmsg(msg, __func__)))
+-
+-typedef struct _pgsodium_cb
+-{
+-	void       *ptr;
+-	size_t      size;
+-} _pgsodium_cb;
+-
+-static void context_cb_zero_buff (void *);
+-
+-static void
+-context_cb_zero_buff (void *a)
+-{
+-	_pgsodium_cb *data = (_pgsodium_cb *) a;
+-	sodium_memzero (data->ptr, data->size);
+-}
+-
+-static inline bytea *_pgsodium_zalloc_bytea (size_t);
+-static inline bytea *pgsodium_derive_helper (unsigned long long subkey_id,
+-	size_t subkey_size, bytea * context);
+-
+-extern bytea *pgsodium_secret_key;
+-extern char *getkey_script;
+-
+-/* allocator attached zero-callback to clean up memory */
+-static inline bytea *
+-_pgsodium_zalloc_bytea (size_t allocation_size)
+-{
+-	bytea      *result = (bytea *) palloc (allocation_size);
+-	MemoryContextCallback *ctxcb =
+-		(MemoryContextCallback *) MemoryContextAlloc (CurrentMemoryContext,
+-		sizeof (MemoryContextCallback));
+-	_pgsodium_cb *d = (_pgsodium_cb *) palloc (sizeof (_pgsodium_cb));
+-	d->ptr = result;
+-	d->size = allocation_size;
+-	ctxcb->func = context_cb_zero_buff;
+-	ctxcb->arg = d;
+-	MemoryContextRegisterResetCallback (CurrentMemoryContext, ctxcb);	// verify where this cb fires
+-	SET_VARSIZE (result, allocation_size);
+-	return result;
+-}
+-
+-static inline text *
+-_pgsodium_zalloc_text (size_t allocation_size)
+-{
+-	text       *result = (text *) palloc (allocation_size);
+-	MemoryContextCallback *ctxcb =
+-		(MemoryContextCallback *) MemoryContextAlloc (CurrentMemoryContext,
+-		sizeof (MemoryContextCallback));
+-	_pgsodium_cb *d = (_pgsodium_cb *) palloc (sizeof (_pgsodium_cb));
+-	d->ptr = result;
+-	d->size = allocation_size;
+-	ctxcb->func = context_cb_zero_buff;
+-	ctxcb->arg = d;
+-	MemoryContextRegisterResetCallback (CurrentMemoryContext, ctxcb);
+-	SET_VARSIZE (result, allocation_size);
+-	return result;
+-}
+-
+-static inline bytea *
+-pgsodium_derive_helper (unsigned long long subkey_id,
+-	size_t subkey_size, bytea * context)
+-{
+-	size_t      result_size;
+-	bytea      *result;
+-	ERRORIF (pgsodium_secret_key == NULL,
+-		"%s: pgsodium_derive: no server secret key defined.");
+-	ERRORIF (subkey_size < crypto_kdf_BYTES_MIN ||
+-		subkey_size > crypto_kdf_BYTES_MAX,
+-		"%s: crypto_kdf_derive_from_key: invalid key size requested");
+-	ERRORIF (VARSIZE_ANY_EXHDR (context) != 8,
+-		"%s: crypto_kdf_derive_from_key: context must be 8 bytes");
+-	result_size = VARHDRSZ + subkey_size;
+-	result = _pgsodium_zalloc_bytea (result_size);
+-	crypto_kdf_derive_from_key (PGSODIUM_UCHARDATA (result),
+-		subkey_size,
+-		subkey_id,
+-		(const char *) VARDATA_ANY (context),
+-		PGSODIUM_UCHARDATA (pgsodium_secret_key));
+-	return result;
+-}
+-
+-#endif /* PGSODIUM_H */
+diff --git a/src/supabase_vault.c b/src/supabase_vault.c
+deleted file mode 100644
+index ef076b7..0000000
+--- a/src/supabase_vault.c
++++ /dev/null
+@@ -1,100 +0,0 @@
+-#include <postgres.h>
+-
+-#include <sodium.h>
+-#include <utils/builtins.h>
+-#include <utils/guc.h>
+-#include <miscadmin.h>
+-#include <unistd.h>
+-#include <storage/ipc.h>
+-
+-#include "pgsodium.h"
+-
+-PG_MODULE_MAGIC;
+-
+-void _PG_init(void);
+-
+-void
+-_PG_init (void)
+-{
+-	FILE       *fp;
+-	char       *secret_buf = NULL;
+-	size_t      secret_len = 0;
+-	size_t      char_read;
+-	char       *path;
+-	char        sharepath[MAXPGPATH];
+-
+-	if (sodium_init () == -1)
+-	{
+-		elog (ERROR,
+-			"_PG_init: sodium_init() failed cannot initialize supabase_vault");
+-		return;
+-	}
+-
+-	// we're done if not preloaded, otherwise try to get internal shared key
+-	if (!process_shared_preload_libraries_in_progress)
+-		return;
+-
+-	path = (char *) palloc0 (MAXPGPATH);
+-	get_share_path (my_exec_path, sharepath);
+-	snprintf (path, MAXPGPATH, "%s/extension/%s", sharepath, PG_GETKEY_EXEC);
+-
+-	DefineCustomStringVariable ("vault.getkey_script",
+-		"path to script that returns vault root key",
+-		NULL, &getkey_script, path, PGC_POSTMASTER, 0, NULL, NULL, NULL);
+-
+-	if (access (getkey_script, X_OK) == -1)
+-	{
+-		if (errno == ENOENT)
+-			ereport(ERROR, (
+-				errmsg("The getkey script \"%s\" does not exist.", getkey_script),
+-				errdetail("The getkey script fetches the primary server secret key."),
+-				errhint("You might want to create it and/or set \"vault.getkey_script\" to the correct path.")));
+-		else if (errno == EACCES)
+-			ereport(ERROR,
+-				errmsg("Permission denied for the getkey script \"%s\"",
+-					getkey_script));
+-		else
+-			ereport(ERROR,
+-				errmsg("Can not access getkey script \"%s\"", getkey_script));
+-		proc_exit (1);
+-	}
+-
+-	if ((fp = popen (getkey_script, "r")) == NULL)
+-	{
+-		ereport(ERROR,
+-			errmsg("%s: could not launch shell command from", getkey_script));
+-		proc_exit (1);
+-	}
+-
+-	char_read = getline (&secret_buf, &secret_len, fp);
+-	if (secret_buf[char_read - 1] == '\n')
+-		secret_buf[char_read - 1] = '\0';
+-
+-	secret_len = strlen (secret_buf);
+-
+-	if (secret_len != 64)
+-	{
+-		ereport(ERROR, errmsg("invalid secret key"));
+-		proc_exit (1);
+-	}
+-
+-	if (pclose (fp) != 0)
+-	{
+-		ereport(ERROR, errmsg( "%s: could not close shell command\n",
+-			PG_GETKEY_EXEC));
+-		proc_exit (1);
+-	}
+-	pgsodium_secret_key =
+-		sodium_malloc (crypto_sign_SECRETKEYBYTES + VARHDRSZ);
+-
+-	if (pgsodium_secret_key == NULL)
+-	{
+-		ereport(ERROR, errmsg( "%s: sodium_malloc() failed\n", PG_GETKEY_EXEC));
+-		proc_exit (1);
+-	}
+-
+-	hex_decode (secret_buf, secret_len, VARDATA (pgsodium_secret_key));
+-	sodium_memzero (secret_buf, secret_len);
+-	free (secret_buf);
+-	elog (LOG, "vault primary server secret key loaded");
+-}
+diff --git a/supabase_vault--0.2.8.control b/supabase_vault--0.2.8.control
+deleted file mode 100644
+index 1c3763a..0000000
+--- a/supabase_vault--0.2.8.control
++++ /dev/null
+@@ -1 +0,0 @@
+-requires = pgsodium
+diff --git a/supabase_vault.control b/supabase_vault.control
+new file mode 100644
+index 0000000..23bea33
+--- /dev/null
++++ b/supabase_vault.control
+@@ -0,0 +1,5 @@
++comment = 'Supabase Vault Extension'
++default_version = '0.2.8'
++relocatable = false
++schema = vault
++requires = pgsodium
+diff --git a/supabase_vault.control.in b/supabase_vault.control.in
+deleted file mode 100644
+index 36f54c1..0000000
+--- a/supabase_vault.control.in
++++ /dev/null
+@@ -1,5 +0,0 @@
+-comment = 'Supabase Vault Extension'
+-default_version = '@VAULT_VERSION@'
+-module_pathname = '$libdir/supabase_vault'
+-relocatable = false
+-schema = vault
+diff --git a/test.sh b/test.sh
+new file mode 100755
+index 0000000..edad731
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,31 @@
++version=$1
++shift
++
++DB_HOST="vault-test-db-$version"
++DB_NAME="postgres"
++SU="postgres"
++EXEC="docker exec $DB_HOST"
++TAG="vault/test-$version"
++CONFIG="-c shared_preload_libraries=pgsodium -c pgsodium.getkey_script=/pgsodium/getkey_scripts/pgsodium_getkey_urandom.sh"
++EXPORT=6789
++
++echo building test image $DB_HOST
++docker build . -t $TAG --build-arg "version=$version"
++
++echo running test container
++docker run \
++	   -v `pwd`:/vault \
++	   -e POSTGRES_HOST_AUTH_METHOD=trust \
++	   -d --name "$DB_HOST" $TAG $CONFIG
++
++echo waiting for database to accept connections
++until
++    $EXEC \
++        psql -o /dev/null -t -q -U "$SU" \
++        -c 'select pg_sleep(1)' \
++        2>/dev/null;
++do sleep 1;
++done
++
++echo running tests
++$EXEC psql -q -U "$SU" -f /vault/test.sql
+diff --git a/test.sql b/test.sql
+new file mode 100644
+index 0000000..e6221c2
+--- /dev/null
++++ b/test.sql
+@@ -0,0 +1,113 @@
++\set ECHO none
++\set QUIET 1
++
++\pset format unaligned
++\pset tuples_only true
++\pset pager
++
++\set ON_ERROR_ROLLBACK 1
++\set ON_ERROR_STOP on
++
++BEGIN;
++
++CREATE EXTENSION IF NOT EXISTS pgtap;
++CREATE EXTENSION supabase_vault CASCADE;
++
++select plan(4);
++
++CREATE ROLE bob login password 'bob';
++GRANT pgsodium_keyiduser TO bob;
++
++select id as test_new_key_id from pgsodium.create_key(name:='test_new_key') \gset
++
++select vault.create_secret (
++	's3kr3t_k3y', 'a_name', 'this is the foo secret key') test_secret_id \gset
++
++select vault.create_secret (
++	's3kr3t_k3y_2', 'another_name', 'this is another foo key',
++	(select id from pgsodium.key where name = 'test_new_key')) test_secret_id_2 \gset
++
++SELECT results_eq(
++    $$
++    SELECT decrypted_secret = 's3kr3t_k3y', description = 'this is the foo secret key'
++    FROM vault.decrypted_secrets WHERE name = 'a_name';
++    $$,
++    $$VALUES (true, true)$$,
++    'can select from masking view with custom key');
++
++SELECT results_eq(
++    $$
++    SELECT decrypted_secret = 's3kr3t_k3y_2', description = 'this is another foo key'
++    FROM vault.decrypted_secrets WHERE key_id = (select id from pgsodium.key where name = 'test_new_key');
++    $$,
++    $$VALUES (true, true)$$,
++    'can select from masking view');
++
++SELECT lives_ok(
++	format($test$
++	select vault.update_secret(
++	    %L::uuid, new_name:='a_new_name',
++	    new_secret:='new_s3kr3t_k3y', new_description:='this is the bar key')
++	$test$, :'test_secret_id'),
++	'can update name, secret and description'
++	);
++
++TRUNCATE vault.secrets;
++COMMIT;
++
++\c postgres bob
++
++select plan(5);
++
++select vault.create_secret ('foo', 'bar', 'baz') bob_secret_id \gset
++
++select results_eq(
++    format(
++	$test$
++    SELECT (decrypted_secret COLLATE "default"), name, description FROM vault.decrypted_secrets
++    WHERE id = %L::uuid
++    $test$,
++	:'bob_secret_id'),
++    $results$values ('foo', 'bar', 'baz')$results$,
++     'bob can query a secret');
++
++select lives_ok(
++	format(
++	$test$
++	select vault.update_secret(
++    %L::uuid,
++    'fooz',
++    'barz',
++    'bazz')
++	$test$, :'bob_secret_id'),
++     'bob can update a secret');
++
++select results_eq(
++    $test$
++    SELECT (decrypted_secret COLLATE "default"), name, description
++    FROM vault.decrypted_secrets
++    $test$,
++    $results$values ('fooz', 'barz', 'bazz')$results$,
++     'bob can query an updated secret');
++
++select lives_ok(
++	format(
++	$test$
++	select vault.update_secret(
++    %L::uuid,
++	new_key_id:=(pgsodium.create_key()).id)
++	$test$, :'bob_secret_id'),
++    'bob can update key_id');
++
++select results_eq(
++    format(
++	$test$
++    SELECT (decrypted_secret COLLATE "default"), name, description
++    FROM vault.decrypted_secrets
++    WHERE id = %L::uuid;
++    $test$,
++	:'bob_secret_id'),
++    $results$values ('fooz', 'barz', 'bazz')$results$,
++     'bob can rotate a key id');
++
++select * from finish();
+diff --git a/test/expected/test.out b/test/expected/test.out
+deleted file mode 100644
+index 28abe9b..0000000
+--- a/test/expected/test.out
++++ /dev/null
+@@ -1,102 +0,0 @@
+-select no_plan();
+- no_plan 
+----------
+-(0 rows)
+-
+-do $$
+-select vault.create_secret (
+-	's3kr3t_k3y', 'a_name', 'this is the foo secret key');
+-$$;
+-ERROR:  syntax error at or near "select"
+-LINE 2: select vault.create_secret (
+-        ^
+-SELECT results_eq(
+-    $$
+-    SELECT decrypted_secret = 's3kr3t_k3y', description = 'this is the foo secret key'
+-    FROM vault.decrypted_secrets WHERE name = 'a_name';
+-    $$,
+-    $$VALUES (true, true)$$,
+-    'can select from masking view with custom key');
+-                           results_eq                            
+------------------------------------------------------------------
+- not ok 1 - can select from masking view with custom key        +
+- # Failed test 1: "can select from masking view with custom key"+
+- #     Results differ beginning at row 1:                       +
+- #         have: NULL                                           +
+- #         want: (t,t)
+-(1 row)
+-
+-SELECT lives_ok(
+-	$test$
+-	select vault.update_secret(
+-	    (select id from vault.secrets where name = 'a_name'), new_name:='a_new_name',
+-	    new_secret:='new_s3kr3t_k3y', new_description:='this is the bar key')
+-	$test$,
+-	'can update name, secret and description'
+-	);
+-                    lives_ok                    
+-------------------------------------------------
+- ok 2 - can update name, secret and description
+-(1 row)
+-
+-TRUNCATE vault.secrets;
+-set role bob;
+-do $$
+-select vault.create_secret ('foo', 'bar', 'baz');
+-$$;
+-ERROR:  syntax error at or near "select"
+-LINE 2: select vault.create_secret ('foo', 'bar', 'baz');
+-        ^
+-select results_eq(
+-	$test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description FROM vault.decrypted_secrets
+-    WHERE name = 'bar'
+-    $test$,
+-    $results$values ('foo', 'bar', 'baz')$results$,
+-     'bob can query a secret');
+-                results_eq                 
+--------------------------------------------
+- not ok 3 - bob can query a secret        +
+- # Failed test 3: "bob can query a secret"+
+- #     Results differ beginning at row 1: +
+- #         have: NULL                     +
+- #         want: (foo,bar,baz)
+-(1 row)
+-
+-select lives_ok(
+-	$test$
+-	select vault.update_secret(
+-    (select id from vault.secrets where name = 'bar'),
+-    'fooz',
+-    'barz',
+-    'bazz')
+-	$test$,
+-     'bob can update a secret');
+-            lives_ok            
+---------------------------------
+- ok 4 - bob can update a secret
+-(1 row)
+-
+-select results_eq(
+-    $test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description
+-    FROM vault.decrypted_secrets
+-    $test$,
+-    $results$values ('fooz', 'barz', 'bazz')$results$,
+-     'bob can query an updated secret');
+-                     results_eq                     
+-----------------------------------------------------
+- not ok 5 - bob can query an updated secret        +
+- # Failed test 5: "bob can query an updated secret"+
+- #     Results differ beginning at row 1:          +
+- #         have: NULL                              +
+- #         want: (fooz,barz,bazz)
+-(1 row)
+-
+-select * from finish();
+-                finish                
+---------------------------------------
+- 1..5
+- # Looks like you failed 3 tests of 5
+-(2 rows)
+-
+diff --git a/test/fixtures.sql b/test/fixtures.sql
+deleted file mode 100644
+index 82e3d49..0000000
+--- a/test/fixtures.sql
++++ /dev/null
+@@ -1,6 +0,0 @@
+-CREATE ROLE bob login password 'bob';
+-
+-CREATE EXTENSION IF NOT EXISTS pgtap;
+-CREATE EXTENSION supabase_vault CASCADE;
+-
+-GRANT pgsodium_keyiduser TO bob;
+diff --git a/test/sql/test.sql b/test/sql/test.sql
+deleted file mode 100644
+index f6b6e92..0000000
+--- a/test/sql/test.sql
++++ /dev/null
+@@ -1,59 +0,0 @@
+-select no_plan();
+-
+-do $$
+-select vault.create_secret (
+-	's3kr3t_k3y', 'a_name', 'this is the foo secret key');
+-$$;
+-
+-SELECT results_eq(
+-    $$
+-    SELECT decrypted_secret = 's3kr3t_k3y', description = 'this is the foo secret key'
+-    FROM vault.decrypted_secrets WHERE name = 'a_name';
+-    $$,
+-    $$VALUES (true, true)$$,
+-    'can select from masking view with custom key');
+-
+-SELECT lives_ok(
+-	$test$
+-	select vault.update_secret(
+-	    (select id from vault.secrets where name = 'a_name'), new_name:='a_new_name',
+-	    new_secret:='new_s3kr3t_k3y', new_description:='this is the bar key')
+-	$test$,
+-	'can update name, secret and description'
+-	);
+-
+-TRUNCATE vault.secrets;
+-
+-set role bob;
+-
+-do $$
+-select vault.create_secret ('foo', 'bar', 'baz');
+-$$;
+-
+-select results_eq(
+-	$test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description FROM vault.decrypted_secrets
+-    WHERE name = 'bar'
+-    $test$,
+-    $results$values ('foo', 'bar', 'baz')$results$,
+-     'bob can query a secret');
+-
+-select lives_ok(
+-	$test$
+-	select vault.update_secret(
+-    (select id from vault.secrets where name = 'bar'),
+-    'fooz',
+-    'barz',
+-    'bazz')
+-	$test$,
+-     'bob can update a secret');
+-
+-select results_eq(
+-    $test$
+-    SELECT (decrypted_secret COLLATE "default"), name, description
+-    FROM vault.decrypted_secrets
+-    $test$,
+-    $results$values ('fooz', 'barz', 'bazz')$results$,
+-     'bob can query an updated secret');
+-
+-select * from finish();
