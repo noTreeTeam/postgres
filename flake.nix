@@ -569,15 +569,6 @@
 
             #postgres -D "$PGDATA" -k "$TMPDIR" -h localhost -p 5432 >$TMPDIR/logfile/postgresql.log 2>&1 &
             pg_ctl -D "$PGDATA" -l $TMPDIR/logfile/postgresql.log -o "-k $TMPDIR -p 5432" start
-            # If server fails to start, output diagnostic information
-            if ! pg_ctl -D $TMPDIR/pgdata status > /dev/null 2>&1; then
-              echo "=== PostgreSQL Log ==="
-              cat $TMPDIR/logfile/postgresql.log
-              echo "=== System Information ==="
-                ls -la $TMPDIR/pgdata
-                whoami
-                groups
-            fi
             for i in {1..60}; do
               if pg_isready -h localhost -p 5432; then
                 echo "PostgreSQL is ready"
