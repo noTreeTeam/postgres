@@ -61,10 +61,15 @@ jobs:
 
       - name: Set PostgreSQL version environment variable
         run: echo "POSTGRES_MAJOR_VERSION=${{ matrix.postgres_version }}" >> $GITHUB_ENV
+    
+      - name: Install yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
 
       - name: Generate common-nix.vars.pkr.hcl
         run: |
-          PG_VERSION=$(sudo nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
+          PG_VERSION=$(yq '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
           PG_VERSION=$(echo $PG_VERSION | tr -d '"')  # Remove any surrounding quotes
           echo 'postgres-version = "'$PG_VERSION'"' > common-nix.vars.pkr.hcl
           # Ensure there's a newline at the end of the file
