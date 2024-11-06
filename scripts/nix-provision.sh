@@ -39,8 +39,8 @@ EOF
 }
 
 function cleanup_packages {
-    apt-get -y remove --purge ansible
-    add-apt-repository --yes --remove ppa:ansible/ansible
+    sudo apt-get -y remove --purge ansible
+    sudo add-apt-repository --yes --remove ppa:ansible/ansible
 }
 
 install_packages
