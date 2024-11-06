@@ -32,6 +32,7 @@ EXTENSION_CUSTOM_SCRIPTS=@EXTENSION_CUSTOM_SCRIPTS_DIR@
 GROONGA=@GROONGA_DIR@
 DATDIR=$(mktemp -d)
 LOCALE_ARCHIVE=@LOCALES@
+CURRENT_SYSTEM=@CURRENT_SYSTEM@
 export LOCALE_ARCHIVE
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
@@ -85,10 +86,5 @@ orioledb_config_items() {
     fi
 }
 orioledb_config_items "$1"
-if [ "$CURRENT_SYSTEM" = "aarch64-darwin" ]; then
-    echo "NOTE: using aarch64-darwin system"
-    sed -i '' 's/ pg_net,//g' "$DATDIR/postgresql.conf"
-    sed -i '' 's/ pg_net,//g' "$DATDIR/supautils.conf"
-fi
 export GRN_PLUGINS_DIR=$GROONGA/lib/groonga/plugins
 postgres --config-file="$DATDIR/postgresql.conf" -p "$PORTNO" -D "$DATDIR" -k /tmp

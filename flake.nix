@@ -439,7 +439,8 @@
                 --subst-var-by 'LOCALES' '${localeArchive}' \
                 --subst-var-by 'EXTENSION_CUSTOM_SCRIPTS_DIR' "$out/extension-custom-scripts" \
                 --subst-var-by 'MECAB_LIB' '${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so' \
-                --subst-var-by 'GROONGA_DIR' '${supabase-groonga}' 
+                --subst-var-by 'GROONGA_DIR' '${supabase-groonga}' \
+                --subst-var-by 'CURRENT_SYSTEM' '${system}'
 
               chmod +x $out/bin/start-postgres-server
             '';
