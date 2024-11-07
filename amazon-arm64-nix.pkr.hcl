@@ -101,92 +101,52 @@ packer {
   }
 }
 
-# source block
-source "amazon-ebssurrogate" "source" {
-  profile = "${var.profile}"
-  #access_key    = "${var.aws_access_key}"
-  #ami_name = "${var.ami_name}-arm64-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  ami_name = "${var.ami_name}-${var.postgres-version}-stage-1"
-  ami_virtualization_type = "hvm"
-  ami_architecture = "arm64"
-  ami_regions   = "${var.ami_regions}"
-  instance_type = "c6g.4xlarge"
-  region       = "${var.region}"
-  #secret_key   = "${var.aws_secret_key}"
-  force_deregister = var.force-deregister
+source "qemu" "supabase_postgres" {
+  vm_name              = "ubuntu-2004-arm64-iso.qcow2"
+  iso_url              = "https://cdimage.ubuntu.com/releases/focal/release/ubuntu-20.04.5-live-server-arm64.iso"
+  # iso_checksum         = "sha256:b8f31413336b9393ad5d8ef0282717b2ab19f007df2e9ed5196c13d8f9153c8b"
+  memory = 20000
+  disk_image = false
+  output_directory = "output_images"
+  shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
+  disk_size = "9000M"
+  format = "qcow2"
+  accelerator = "kvm"
+  net_device = "virtio-net"
+  disk_interface = "virtio"
+  boot_wait = "10s"
 
-  # Use latest official ubuntu focal ami owned by Canonical.
-  source_ami_filter {
-    filters = {
-      virtualization-type = "hvm"
-      name = "${var.ami}"
-      root-device-type = "ebs"
-    }
-    owners = [ "099720109477" ]
-    most_recent = true
-   }
-  ena_support = true
-  launch_block_device_mappings {
-    device_name = "/dev/xvdf"
-    delete_on_termination = true
-    volume_size = 10
-    volume_type = "gp3"
-   }
+  boot_command         = [
+    # Make the language selector appear...
+    " <up><wait>",
+    # ...then get rid of it
+    " <up><wait><esc><wait>",
 
-  launch_block_device_mappings {
-    device_name = "/dev/xvdh"
-    delete_on_termination = true
-    volume_size = 8
-    volume_type = "gp3"
-   }
+    # Go to the other installation options menu and leave it
+    "<f6><wait><esc><wait>",
 
-  launch_block_device_mappings {
-    device_name           = "/dev/${var.build-vol}"
-    delete_on_termination = true
-    volume_size           = 16
-    volume_type           = "gp2"
-    omit_from_artifact    = true
-  }
+    # Remove the kernel command-line that already exists
+    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
+    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
 
-  run_tags = {
-    creator           = "packer"
-    appType           = "postgres"
-    packerExecutionId = "${var.packer-execution-id}"
-  }
-  run_volume_tags = {
-    creator = "packer"
-    appType = "postgres"
-  }
-  snapshot_tags = {
-    creator = "packer"
-    appType = "postgres"
-  }
-  tags = {
-    creator = "packer"
-    appType = "postgres"
-    postgresVersion = "${var.postgres-version}-stage1"
-    sourceSha = "${var.git-head-version}"
-  }
-
-  communicator = "ssh"
-  ssh_pty = true
-  ssh_username = "ubuntu"
-  ssh_timeout = "5m"
-
-  ami_root_device {
-    source_device_name = "/dev/xvdf"
-    device_name = "/dev/xvda"
-    delete_on_termination = true
-    volume_size = 10
-    volume_type = "gp2"
-  }
-
-  associate_public_ip_address = true
+    # Add kernel command-line and start install
+    "/casper/vmlinuz ",
+    "initrd=/casper/initrd ",
+    "autoinstall ",
+    "ds=nocloud-net;s=http://{{.HTTPIP}}:{{.HTTPPort}}/ ",
+    "<enter>"
+  ]
+  http_directory       = "http"
+  ssh_username         = "packer"
+  ssh_password         = "packer"
+  ssh_timeout          = "60m"
 }
+
 
 # a build block invokes sources and runs provisioning steps on them.
 build {
-  sources = ["source.amazon-ebssurrogate.source"]
+  sources = ["source.qemu.supabase_postgres"]
 
   provisioner "file" {
     source = "ebssurrogate/files/sources-arm64.cfg"
