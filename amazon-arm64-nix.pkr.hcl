@@ -38,9 +38,13 @@ variable "environment" {
   default = "prod"
 }
 
-variable "region" {
+variable "git_sha" {
   type    = string
 }
+
+# variable "region" {
+#   type    = string
+# }
 
 variable "build-vol" {
   type    = string
@@ -98,140 +102,69 @@ packer {
       source  = "github.com/hashicorp/amazon"
       version = "~> 1"
     }
-  }
-}
-
-# source block
-source "amazon-ebssurrogate" "source" {
-  profile = "${var.profile}"
-  #access_key    = "${var.aws_access_key}"
-  #ami_name = "${var.ami_name}-arm64-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  ami_name = "${var.ami_name}-${var.postgres-version}-stage-1"
-  ami_virtualization_type = "hvm"
-  ami_architecture = "arm64"
-  ami_regions   = "${var.ami_regions}"
-  instance_type = "c6g.4xlarge"
-  region       = "${var.region}"
-  #secret_key   = "${var.aws_secret_key}"
-  force_deregister = var.force-deregister
-
-  # Use latest official ubuntu focal ami owned by Canonical.
-  source_ami_filter {
-    filters = {
-      virtualization-type = "hvm"
-      name = "${var.ami}"
-      root-device-type = "ebs"
+    qemu = {
+      version = "~> 1.0"
+      source  = "github.com/hashicorp/qemu"
     }
-    owners = [ "099720109477" ]
-    most_recent = true
-   }
-  ena_support = true
-  launch_block_device_mappings {
-    device_name = "/dev/xvdf"
-    delete_on_termination = true
-    volume_size = 10
-    volume_type = "gp3"
-   }
-
-  launch_block_device_mappings {
-    device_name = "/dev/xvdh"
-    delete_on_termination = true
-    volume_size = 8
-    volume_type = "gp3"
-   }
-
-  launch_block_device_mappings {
-    device_name           = "/dev/${var.build-vol}"
-    delete_on_termination = true
-    volume_size           = 16
-    volume_type           = "gp2"
-    omit_from_artifact    = true
   }
-
-  run_tags = {
-    creator           = "packer"
-    appType           = "postgres"
-    packerExecutionId = "${var.packer-execution-id}"
-  }
-  run_volume_tags = {
-    creator = "packer"
-    appType = "postgres"
-  }
-  snapshot_tags = {
-    creator = "packer"
-    appType = "postgres"
-  }
-  tags = {
-    creator = "packer"
-    appType = "postgres"
-    postgresVersion = "${var.postgres-version}-stage1"
-    sourceSha = "${var.git-head-version}"
-  }
-
-  communicator = "ssh"
-  ssh_pty = true
-  ssh_username = "ubuntu"
-  ssh_timeout = "5m"
-
-  ami_root_device {
-    source_device_name = "/dev/xvdf"
-    device_name = "/dev/xvda"
-    delete_on_termination = true
-    volume_size = 10
-    volume_type = "gp2"
-  }
-
-  associate_public_ip_address = true
 }
 
-# a build block invokes sources and runs provisioning steps on them.
+source "null" "dependencies" {
+  communicator = "none"
+}
+
 build {
-  sources = ["source.amazon-ebssurrogate.source"]
+  name    = "cloudimg.deps"
+  sources = ["source.null.dependencies"]
 
-  provisioner "file" {
-    source = "ebssurrogate/files/sources-arm64.cfg"
-    destination = "/tmp/sources.list"
+  provisioner "shell-local" {
+    inline = [
+      "cp /usr/share/AAVMF/AAVMF_VARS.fd AAVMF_VARS.fd",
+      "cloud-localds seeds-cloudimg.iso user-data-cloudimg meta-data"
+    ]
+    inline_shebang = "/bin/bash -e"
   }
+}
 
-  provisioner "file" {
-    source = "ebssurrogate/files/ebsnvme-id"
-    destination = "/tmp/ebsnvme-id"
+source "qemu" "cloudimg" {
+  boot_wait      = "2s"
+  cpus           = 12
+  disk_image     = true
+  disk_size      = "15G"
+  format         = "qcow2"
+  # TODO (darora): disable backing image for qcow2
+  headless       = true
+  http_directory = "http"
+  iso_checksum   = "file:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS"
+  iso_url        = "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img"
+  memory         = 20000
+  qemu_binary    = "qemu-system-aarch64"
+  qemu_img_args {
+    create = ["-F", "qcow2"]
   }
+  qemuargs = [
+    ["-machine", "virt"],
+    ["-cpu", "host"],
+    ["-device", "virtio-gpu-pci"],
+    ["-drive", "if=pflash,format=raw,id=ovmf_code,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd"],
+    ["-drive", "if=pflash,format=raw,id=ovmf_vars,file=AAVMF_VARS.fd"],
+    ["-drive", "file=output-cloudimg/packer-cloudimg,format=qcow2"],
+    ["-drive", "file=seeds-cloudimg.iso,format=raw"],
+    ["--enable-kvm"]
+  ]
+  shutdown_command       = "sudo -S shutdown -P now"
+  ssh_handshake_attempts = 500
+  ssh_password           = "ubuntu"
+  ssh_timeout            = "1h"
+  ssh_username           = "ubuntu"
+  ssh_wait_timeout       = "1h"
+  use_backing_file       = true
+  accelerator = "kvm"
+}
 
-  provisioner "file" {
-    source = "ebssurrogate/files/70-ec2-nvme-devices.rules"
-    destination = "/tmp/70-ec2-nvme-devices.rules"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/scripts/chroot-bootstrap-nix.sh"
-    destination = "/tmp/chroot-bootstrap-nix.sh"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/cloud.cfg"
-    destination = "/tmp/cloud.cfg"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/vector.timer"
-    destination = "/tmp/vector.timer"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/apparmor_profiles"
-    destination = "/tmp"
-  }
-
-  provisioner "file" {
-    source = "migrations"
-    destination = "/tmp"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/unit-tests"
-    destination = "/tmp"
-  }
+build {
+  name    = "cloudimg.image"
+  sources = ["source.qemu.cloudimg"]
 
   # Copy ansible playbook
   provisioner "shell" {
@@ -249,29 +182,24 @@ build {
   }
 
   provisioner "file" {
-    source = "ansible/vars.yml"
-    destination = "/tmp/ansible-playbook/vars.yml"
+    source = "migrations"
+    destination = "/tmp"
+  }
+
+  provisioner "file" {
+    source = "ebssurrogate/files/unit-tests"
+    destination = "/tmp"
   }
 
   provisioner "shell" {
     environment_vars = [
-      "ARGS=${var.ansible_arguments}",
-      "DOCKER_USER=${var.docker_user}",
-      "DOCKER_PASSWD=${var.docker_passwd}",
-      "DOCKER_IMAGE=${var.docker_image}",
-      "DOCKER_IMAGE_TAG=${var.docker_image_tag}",
-      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
+      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}",
+      "GIT_SHA=${var.git_sha}"
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/surrogate-bootstrap-nix.sh"
-    execute_command = "sudo -S sh -c '. {{.EnvVarFile}} && {{.Path}}'"
+    execute_command = "sudo -S sh -c '. {{.EnvVarFile}} && cd /tmp/ansible-playbook && {{.Path}}'"
     start_retry_timeout = "5m"
     skip_clean = true
-  }
-
-  provisioner "file" {
-    source = "/tmp/ansible.log"
-    destination = "/tmp/ansible.log"
-    direction = "download"
   }
 }

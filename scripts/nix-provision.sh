@@ -29,13 +29,13 @@ function execute_stage2_playbook {
 [defaults]
 callbacks_enabled = timer, profile_tasks, profile_roles
 EOF
-    sed -i 's/- hosts: all/- hosts: localhost/' /tmp/ansible-playbook/ansible/playbook.yml
+    # sed -i 's/- hosts: all/- hosts: localhost/' ./ansible/playbook.yml
     # Run Ansible playbook
     export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
-    ansible-playbook /tmp/ansible-playbook/ansible/playbook.yml \
+    GIT_SHA=$(git rev-parse HEAD)
+    ansible-playbook ./ansible/playbook.yml \
         --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false}' \
-        --extra-vars "git_commit_sha=${GIT_SHA}" \
-        $ARGS
+        --extra-vars "git_commit_sha=${GIT_SHA}"
 }
 
 function cleanup_packages {

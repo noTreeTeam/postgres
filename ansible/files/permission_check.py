@@ -9,18 +9,18 @@ expected_results = {
         {"groupname": "ssl-cert", "username": "postgres"}
     ],
     "ubuntu": [
-        {"groupname":"ubuntu","username":"ubuntu"},
-        {"groupname":"adm","username":"ubuntu"},
-        {"groupname":"dialout","username":"ubuntu"},
-        {"groupname":"cdrom","username":"ubuntu"},
-        {"groupname":"floppy","username":"ubuntu"},
-        {"groupname":"sudo","username":"ubuntu"},
-        {"groupname":"audio","username":"ubuntu"},
-        {"groupname":"dip","username":"ubuntu"},
-        {"groupname":"video","username":"ubuntu"},
-        {"groupname":"plugdev","username":"ubuntu"},
-        {"groupname":"lxd","username":"ubuntu"},
-        {"groupname":"netdev","username":"ubuntu"}
+        {'groupname': 'adm', 'username': 'ubuntu'},
+        {'groupname': 'audio', 'username': 'ubuntu'},
+        {'groupname': 'cdrom', 'username': 'ubuntu'},
+        {'groupname': 'dialout', 'username': 'ubuntu'},
+        {'groupname': 'dip', 'username': 'ubuntu'},
+        {'groupname': 'floppy', 'username': 'ubuntu'},
+        {'groupname': 'lxd', 'username': 'ubuntu'},
+        {'groupname': 'netdev', 'username': 'ubuntu'},
+        {'groupname': 'plugdev', 'username': 'ubuntu'},
+        {'groupname': 'sudo', 'username': 'ubuntu'},
+        {'groupname': 'ubuntu', 'username': 'ubuntu'},
+        {'groupname': 'video', 'username': 'ubuntu'}
     ],
     "root": [
         {"groupname":"root","username":"root"}
@@ -88,20 +88,17 @@ expected_results = {
     "messagebus": [
         {"groupname":"messagebus","username":"messagebus"}
     ],
-    "ec2-instance-connect": [
-        {"groupname":"nogroup","username":"ec2-instance-connect"}
-    ],
     "sshd": [
         {"groupname":"nogroup","username":"sshd"}
     ],
     "wal-g": [
-        {"groupname":"wal-g","username":"wal-g"},
-        {"groupname":"postgres","username":"wal-g"}
+        {"groupname":"postgres","username":"wal-g"},
+        {"groupname":"wal-g","username":"wal-g"}
     ],
     "pgbouncer": [
         {"groupname":"pgbouncer","username":"pgbouncer"},
-        {"groupname":"ssl-cert","username":"pgbouncer"},
-        {"groupname":"postgres","username":"pgbouncer"}
+        {"groupname":"postgres","username":"pgbouncer"},
+        {"groupname":"ssl-cert","username":"pgbouncer"}
     ],
     "gotrue": [
         {"groupname":"gotrue","username":"gotrue"}
@@ -116,23 +113,23 @@ expected_results = {
         {"groupname":"nginx","username":"nginx"}
     ],
     "vector": [
-        {"groupname":"vector","username":"vector"},
         {"groupname":"adm","username":"vector"},
+        {"groupname":"postgres","username":"vector"},
         {"groupname":"systemd-journal","username":"vector"},
-        {"groupname":"postgres","username":"vector"}
+        {"groupname":"vector","username":"vector"}
     ],
     "adminapi": [
-        {"groupname":"adminapi","username":"adminapi"},
-        {"groupname":"root","username":"adminapi"},
-        {"groupname":"systemd-journal","username":"adminapi"},
         {"groupname":"admin","username":"adminapi"},
-        {"groupname":"postgres","username":"adminapi"},
-        {"groupname":"pgbouncer","username":"adminapi"},
-        {"groupname":"wal-g","username":"adminapi"},
-        {"groupname":"postgrest","username":"adminapi"},
+        {"groupname":"adminapi","username":"adminapi"},
         {"groupname":"envoy","username":"adminapi"},
         {"groupname":"kong","username":"adminapi"},
-        {"groupname":"vector","username":"adminapi"}
+        {"groupname":"pgbouncer","username":"adminapi"},
+        {"groupname":"postgres","username":"adminapi"},
+        {"groupname":"postgrest","username":"adminapi"},
+        {"groupname":"root","username":"adminapi"},
+        {"groupname":"systemd-journal","username":"adminapi"},
+        {"groupname":"vector","username":"adminapi"},
+        {"groupname":"wal-g","username":"adminapi"}
     ],
     "postgrest": [
         {"groupname":"postgrest","username":"postgrest"}
@@ -144,6 +141,7 @@ expected_results = {
         {"groupname":"systemd-coredump","username":"systemd-coredump"}
     ]
 }
+
 # This program depends on osquery being installed on the system
 # Function to run osquery
 def run_osquery(query):
@@ -174,28 +172,28 @@ def compare_results(username, query_result):
 
 def check_nixbld_users():
     query = """
-    SELECT u.username, g.groupname 
-    FROM users u 
-    JOIN user_groups ug ON u.uid = ug.uid 
-    JOIN groups g ON ug.gid = g.gid 
+    SELECT u.username, g.groupname
+    FROM users u
+    JOIN user_groups ug ON u.uid = ug.uid
+    JOIN groups g ON ug.gid = g.gid
     WHERE u.username LIKE 'nixbld%';
     """
     query_result = run_osquery(query)
     parsed_result = parse_json(query_result)
-    
+
     for user in parsed_result:
         if user['groupname'] != 'nixbld':
             print(f"User '{user['username']}' is in group '{user['groupname']}' instead of 'nixbld'.")
             sys.exit(1)
-    
+
     print("All nixbld users are in the 'nixbld' group.")
 
 # Define usernames for which you want to compare results
-usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","gnats","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
+usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","gnats","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
 
 # Iterate over usernames, run the query, and compare results
 for username in usernames:
-    query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}';"
+    query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}' ORDER BY g.groupname;"
     query_result = run_osquery(query)
     parsed_result = parse_json(query_result)
     compare_results(username, parsed_result)
