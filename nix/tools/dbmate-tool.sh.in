@@ -196,8 +196,37 @@ export DATABASE_URL="postgres://$PGSQL_USER:$PGPASSWORD@localhost:$PORTNO/postgr
 
 ls -la "$MIGRATIONS_DIR"
 pwd
-dbmate --migrations-dir "$MIGRATIONS_DIR/init-scripts"  up
-"${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U postgres  -p "$PORTNO" -h localhost -c "ALTER USER supabase_admin WITH PASSWORD '$PGPASSWORD'"
+# First dbmate command
+if ! dbmate --migrations-dir "$MIGRATIONS_DIR/init-scripts" up; then
+    echo "Error: Initial migration failed"
+    exit 1
+fi
+
+# Password update command
+if ! "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U postgres -p "$PORTNO" -h localhost -c "ALTER USER supabase_admin WITH PASSWORD '$PGPASSWORD'"; then
+    echo "Error: Failed to update supabase_admin password"
+    exit 1
+fi
+
+# Set up database URL
 export DATABASE_URL="postgres://$PGSQL_SUPERUSER:$PGPASSWORD@localhost:$PORTNO/postgres?sslmode=disable"
-dbmate --migrations-dir "$MIGRATIONS_DIR/migrations" up
-echo "PostgreSQL configuration completed successfully"
+
+# Second dbmate command
+if ! dbmate --migrations-dir "$MIGRATIONS_DIR/migrations" up; then
+    echo "Error: Final migration failed"
+    exit 1
+fi
+
+if [ -f "./db/schema.sql" ]; then
+    mv "./db/schema.sql" "./db/schema-$PSQL_VERSION.sql"
+    rm -rf ./db
+    echo "Schema file moved to ./migrations/schema-$PSQL_VERSION.sql"
+else
+    echo "Warning: schema.sql file not found in ./db directory"
+    exit 1
+fi
+
+"${PSQLBIN}/pg_dump" -U "$PGSQL_SUPERUSER" -p "$PORTNO" -h localhost -d postgres -s -f "./pg-dump-schema-$PSQL_VERSION.sql"
+
+# If we get here, all commands succeeded
+echo "PostgreSQL migration completed successfully"
