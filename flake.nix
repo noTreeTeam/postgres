@@ -524,7 +524,7 @@
               chmod +x $out/bin/pg-restore
             '';
           sync-exts-versions = pkgs.runCommand "sync-exts-versions" { } ''
-            mkdir -p $out/bin
+            mkdir -p $out/bin 
             substitute ${./nix/tools/sync-exts-versions.sh.in} $out/bin/sync-exts-versions \
               --subst-var-by 'YQ' '${pkgs.yq}/bin/yq' \
               --subst-var-by 'JQ' '${pkgs.jq}/bin/jq' \
@@ -533,7 +533,33 @@
               --subst-var-by 'NIX' '${pkgs.nixVersions.nix_2_20}/bin/nix'
             chmod +x $out/bin/sync-exts-versions
           '';
+          dbmate-tool = 
+          let
+            migrationsDir = ./migrations/db;
+          in
+          pkgs.runCommand "dbmate-tool" {
+            buildInputs = with pkgs; [
+              overmind
+              dbmate
+              nix
+              jq
+            ];
+            nativeBuildInputs = with pkgs; [
+              makeWrapper
+            ];
+          } ''
+            mkdir -p $out/bin $out/migrations 
+            cp -r ${migrationsDir}/* $out
+            substitute ${./nix/tools/dbmate-tool.sh.in} $out/bin/dbmate-tool \
+              --subst-var-by 'PGSQL_DEFAULT_PORT' '${pgsqlDefaultPort}' \
+              --subst-var-by 'MIGRATIONS_DIR' $out \
+              --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}'
+            chmod +x $out/bin/dbmate-tool
+            wrapProgram $out/bin/dbmate-tool \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.overmind pkgs.dbmate pkgs.nix pkgs.jq]}
+          '';       
         };
+
 
         # Create a testing harness for a PostgreSQL package. This is used for
         # 'nix flake check', and works with any PostgreSQL package you hand it.
@@ -651,6 +677,7 @@
             migration-test = mkApp "migrate-tool" "migrate-postgres";
             sync-exts-versions = mkApp "sync-exts-versions" "sync-exts-versions";
             pg-restore = mkApp "pg-restore" "pg-restore";
+            dbmate-tool = mkApp "dbmate-tool" "dbmate-tool";
           };
 
         # 'devShells.default' lists the set of packages that are included in the
@@ -689,6 +716,7 @@
             basePackages.start-replica
             basePackages.migrate-tool
             basePackages.sync-exts-versions
+            dbmate
           ];
           shellHook = ''
             export HISTFILE=.history
