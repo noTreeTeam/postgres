@@ -678,10 +678,11 @@
             start-server = mkApp "start-server" "start-postgres-server";
             start-client = mkApp "start-client" "start-postgres-client";
             start-replica = mkApp "start-replica" "start-postgres-replica";
-            migration-test = mkApp "migrate-tool" "migrate-postgres";
+            migrate-postgres = mkApp "migrate-tool" "migrate-postgres";
             sync-exts-versions = mkApp "sync-exts-versions" "sync-exts-versions";
             pg-restore = mkApp "pg-restore" "pg-restore";
             dbmate-tool = mkApp "dbmate-tool" "dbmate-tool";
+            migration-unit-tests = mkApp "migration-unit-tests" "migration-unit-tests";
           };
 
         # 'devShells.default' lists the set of packages that are included in the

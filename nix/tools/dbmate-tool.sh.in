@@ -7,13 +7,13 @@
 PSQL_VERSION="ALL"
 MIGRATION_FILE=""
 PORTNO="@PGSQL_DEFAULT_PORT@"
-PGSQL_SUPERUSER=@PGSQL_SUPERUSER@
+PGSQL_SUPERUSER="@PGSQL_SUPERUSER@"
 PGPASSWORD="${PGPASSWORD:-postgres}"
 PGSQL_USER="postgres"
 FLAKE_URL="github:supabase/postgres"
 MIGRATIONS_DIR="@MIGRATIONS_DIR@"
-CURRENT_SYSTEM=@CURRENT_SYSTEM@
-ANSIBLE_VARS=@ANSIBLE_VARS@
+CURRENT_SYSTEM="@CURRENT_SYSTEM@"
+ANSIBLE_VARS="@ANSIBLE_VARS@"
 # Cleanup function
 cleanup() {
     echo "Cleaning up..."
@@ -174,8 +174,9 @@ EOF
     done
 }
 migrate_version() {
+    echo "PSQL_VERSION: $PSQL_VERSION"
     overmind kill || true
-    rm -f .overmind.sock Procfile || true
+    rm -f .overmind.sock Procfile  || true
     PSQLBIN=$(nix build --no-link "$FLAKE_URL#psql_$PSQL_VERSION/bin" --json | jq -r '.[].outputs.out + "/bin"')
     echo "Using PostgreSQL version $PSQL_VERSION from $PSQLBIN"
     
@@ -243,6 +244,14 @@ EOSQL
 
     # If we get here, all commands succeeded
     echo "PostgreSQL migration completed successfully"
+    echo "Check migrations are idempotent"
+    for sql in ./migrations/db/migrations/*.sql; do
+        echo "$0: running $sql"
+        "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U "$PGSQL_SUPERUSER" -p "$PORTNO" -h localhost -d postgres -f "$sql" || {
+            echo "Failed to execute $sql"
+            exit 1
+        }
+    done
 }
 
 if [ "$PSQL_VERSION" == "all" ]; then
