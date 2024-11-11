@@ -214,7 +214,7 @@ EOF
 	# Run Ansible playbook
 	#export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_DEBUG=True && export ANSIBLE_REMOTE_TEMP=/mnt/tmp 
 	export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/mnt/tmp
-	ansible-playbook /tmp/ansible-playbook/ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' $ARGS
+	ansible-playbook ./ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' # $ARGS - I think this is being not passed in correctly
 }
 
 function update_systemd_services {
@@ -332,10 +332,10 @@ EOF
 	locale-gen en_US.UTF-8
 }
 
-function random_stuff {
-    mkdir -p /run/postgresql
-    chown -R postgres:postgres /run/postgresql
-}
+# function random_stuff {
+#     mkdir -p /run/postgresql
+#     chown -R postgres:postgres /run/postgresql
+# }
 
 waitfor_boot_finished
 install_packages
@@ -349,7 +349,7 @@ setup_locate
 setup_chroot_environment
 #download_ccache
 execute_playbook
-random_stuff
+# random_stuff
 # update_systemd_services
 #upload_ccache
 # clean_system
