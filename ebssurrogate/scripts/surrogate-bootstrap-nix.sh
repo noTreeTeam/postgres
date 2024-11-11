@@ -143,40 +143,40 @@ EOF
 }
 
 function setup_chroot_environment {
-	UBUNTU_VERSION=$(lsb_release -cs) # 'focal' for Ubuntu 20.04
+	# UBUNTU_VERSION=$(lsb_release -cs) # 'focal' for Ubuntu 20.04
 
-	# Bootstrap Ubuntu into /mnt
-	debootstrap --arch ${ARCH} --variant=minbase "$UBUNTU_VERSION" /mnt
+	# # Bootstrap Ubuntu into /mnt
+	# debootstrap --arch ${ARCH} --variant=minbase "$UBUNTU_VERSION" /mnt
 
-	# Update ec2-region
-	REGION=$(curl --silent --fail http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -E 's|[a-z]+$||g')
-	sed -i "s/REGION/${REGION}/g" /tmp/sources.list
-	cp /tmp/sources.list /mnt/etc/apt/sources.list
+	# # Update ec2-region
+	# REGION=$(curl --silent --fail http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -E 's|[a-z]+$||g')
+	# sed -i "s/REGION/${REGION}/g" /tmp/sources.list
+	# cp /tmp/sources.list /mnt/etc/apt/sources.list
 
-	if [ "${ARCH}" = "arm64" ]; then
-		create_fstab
-	fi
+	# if [ "${ARCH}" = "arm64" ]; then
+	# 	create_fstab
+	# fi
 
 	# Create mount points and mount the filesystem
-	mkdir -p /mnt/{dev,proc,sys}
-	mount --rbind /dev /mnt/dev
-	mount --rbind /proc /mnt/proc
-	mount --rbind /sys /mnt/sys
+	# mkdir -p /mnt/{dev,proc,sys}
+	# mount --rbind /dev /mnt/dev
+	# mount --rbind /proc /mnt/proc
+	# mount --rbind /sys /mnt/sys
 
-        # Create build mount point and mount 
-	mkdir -p /mnt/tmp
-	mount /dev/xvdc /mnt/tmp
-	chmod 777 /mnt/tmp
+        # # Create build mount point and mount
+	# mkdir -p /mnt/tmp
+	# mount /dev/xvdc /mnt/tmp
+	# chmod 777 /mnt/tmp
 
-	# Copy apparmor profiles
-	chmod 644 /tmp/apparmor_profiles/*
-	cp -r /tmp/apparmor_profiles /mnt/tmp/
+	# # Copy apparmor profiles
+	# chmod 644 /tmp/apparmor_profiles/*
+	# cp -r /tmp/apparmor_profiles /mnt/tmp/
 
 	# Copy migrations
 	cp -r /tmp/migrations /mnt/tmp/
 
-	# Copy unit tests 
-	cp -r /tmp/unit-tests /mnt/tmp/
+	# # Copy unit tests
+	# cp -r /tmp/unit-tests /mnt/tmp/
 
 	# Copy the bootstrap script into place and execute inside chroot
 	cp /tmp/chroot-bootstrap-nix.sh /mnt/tmp/chroot-bootstrap-nix.sh
@@ -214,7 +214,7 @@ EOF
 	# Run Ansible playbook
 	#export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_DEBUG=True && export ANSIBLE_REMOTE_TEMP=/mnt/tmp 
 	export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/mnt/tmp
-	ansible-playbook -c chroot -i '/mnt,' /tmp/ansible-playbook/ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' $ARGS
+	ansible-playbook /tmp/ansible-playbook/ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' $ARGS
 }
 
 function update_systemd_services {
@@ -287,37 +287,99 @@ function upload_ccache {
 	docker push  "${DOCKER_IMAGE}:${DOCKER_IMAGE_TAG}"
 }
 
-# Unmount bind mounts
-function umount_reset_mappings {
-	umount -l /mnt/dev
-	umount -l /mnt/proc
-	umount -l /mnt/sys
-	umount -l /mnt/tmp
-	if [ "${ARCH}" = "arm64" ]; then
-		umount /mnt/boot/efi
-	fi
-	umount /mnt/data
-	umount /mnt
+# # Unmount bind mounts
+# function umount_reset_mappings {
+# 	umount -l /mnt/dev
+# 	umount -l /mnt/proc
+# 	umount -l /mnt/sys
+# 	umount -l /mnt/tmp
+# 	if [ "${ARCH}" = "arm64" ]; then
+# 		umount /mnt/boot/efi
+# 	fi
+# 	umount /mnt/data
+# 	umount /mnt
 
-	# Reset device mappings
-	for dev_link in "${blkdev_mappings[@]}" "${partdev_mappings[@]}"; do
-	    if [[ -L "$dev_link" ]]; then
-		rm -f "$dev_link"
-	    fi
-	done
+# 	# Reset device mappings
+# 	for dev_link in "${blkdev_mappings[@]}" "${partdev_mappings[@]}"; do
+# 	    if [[ -L "$dev_link" ]]; then
+# 		rm -f "$dev_link"
+# 	    fi
+# 	done
+# }
+function setup_postgesql_env {
+	    # Create the directory if it doesn't exist
+    sudo mkdir -p /etc/environment.d
+
+    # Define the contents of the PostgreSQL environment file
+    cat <<EOF | sudo tee /etc/environment.d/postgresql.env >/dev/null
+LOCALE_ARCHIVE=/usr/lib/locale/locale-archive
+LANG="en_US.UTF-8"
+LANGUAGE="en_US.UTF-8"
+LC_ALL="en_US.UTF-8"
+LC_CTYPE="en_US.UTF-8"
+EOF
+}
+
+function setup_locale {
+cat << EOF >> /etc/locale.gen
+en_US.UTF-8 UTF-8
+EOF
+
+cat << EOF > /etc/default/locale
+LANG="C.UTF-8"
+LC_CTYPE="C.UTF-8"
+EOF
+	locale-gen en_US.UTF-8
+}
+
+function random_stuff {
+    mkdir -p /run/postgresql
+    chown -R postgres:postgres /run/postgresql
 }
 
 waitfor_boot_finished
 install_packages
-device_partition_mappings
-format_and_mount_rootfs
-create_swapfile
-format_build_partition
+setup_postgesql_env
+setup_locate
+# device_partition_mappings
+# format_and_mount_rootfs
+# create_swapfile
+# format_build_partition
 #pull_docker
 setup_chroot_environment
 #download_ccache
 execute_playbook
-update_systemd_services
+random_stuff
+# update_systemd_services
 #upload_ccache
-clean_system
-umount_reset_mappings
+# clean_system
+# umount_reset_mappings
+
+# stage 2 things
+
+
+function install_nix() {
+    sudo su -c "curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm \
+    --extra-conf \"substituters = https://cache.nixos.org https://nix-postgres-artifacts.s3.amazonaws.com\" \
+    --extra-conf \"trusted-public-keys = nix-postgres-artifacts:dGZlQOvKcNEjvT7QEAJbcV6b6uk7VF/hWMjhYleiaLI=% cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=\" " -s /bin/bash root
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+}
+
+
+function execute_stage2_playbook {
+    sudo tee /etc/ansible/ansible.cfg <<EOF
+[defaults]
+callbacks_enabled = timer, profile_tasks, profile_roles
+EOF
+    sed -i 's/- hosts: all/- hosts: localhost/' /tmp/ansible-playbook/ansible/playbook.yml
+    # Run Ansible playbook
+    export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
+    GIT_SHA=$(git rev-parse HEAD)
+    ansible-playbook ./ansible/playbook.yml \
+        --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false}' \
+        --extra-vars "git_commit_sha=${GIT_SHA}"
+}
+
+install_nix
+execute_stage2_playbook
