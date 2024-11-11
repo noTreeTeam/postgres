@@ -204,6 +204,14 @@
     ansible_command_timeout: 60
   when: debpkg_mode
 
+- name: Make sure .bashrc exists
+  file:
+    path: /var/lib/postgresql/.bashrc
+    state: touch
+    owner: postgres
+    group: postgres
+  when: nixpkg_mode
+
 - name: Initialize the database stage2_nix
   become: yes
   become_user: postgres
@@ -257,13 +265,6 @@
     daemon_reload: yes
   when: debpkg_mode or stage2_nix
 
-- name: Make sure .bashrc exists
-  file: 
-    path: /var/lib/postgresql/.bashrc 
-    state: touch
-    owner: postgres
-    group: postgres
-  when: nixpkg_mode 
 
 - name: Add LOCALE_ARCHIVE to .bashrc
   lineinfile:

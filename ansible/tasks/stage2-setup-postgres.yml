@@ -183,6 +183,7 @@
   file:
     path: /usr/lib/postgresql/share/postgresql/contrib/
     state: directory
+    recurse: yes
   when: stage2_nix
 
 - name: Recursively create symbolic links and set permissions for the contrib/postgis-* dir
