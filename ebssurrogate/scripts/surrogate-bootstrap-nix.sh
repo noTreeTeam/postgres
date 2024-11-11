@@ -380,7 +380,7 @@ EOF
     # sed -i 's/- hosts: all/- hosts: localhost/' /tmp/ansible-playbook/ansible/playbook.yml
     # Run Ansible playbook
     export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
-    GIT_SHA=$(git rev-parse HEAD)
+    GIT_SHA=$(git rev-parse origin/release/15.6)
     ansible-playbook ./ansible/playbook.yml \
         --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false}' \
         --extra-vars "git_commit_sha=${GIT_SHA}"
