@@ -340,7 +340,7 @@ EOF
 waitfor_boot_finished
 install_packages
 setup_postgesql_env
-setup_locate
+setup_locale
 # device_partition_mappings
 # format_and_mount_rootfs
 # create_swapfile
