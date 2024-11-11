@@ -153,10 +153,10 @@ jobs:
       - name: Update Dockerfile.dbmate version
         run: |
           sed -i 's/%VERSION%/${{ env.PGMAJOR }}/g' migrations/Dockerfile.dbmate
-
+      #TODO PR Convert to develop branch flakeurl
       - name: verify schema.sql is committed
         run: |
-          sudo nix run github:supabase/postgres#dbmate-tool -- --version ${{ env.PGMAJOR }}
+          sudo nix run github:supabase/postgres/sam/dbmate-schemas#dbmate-tool -- --version ${{ env.PGMAJOR }}
           if ! git diff --exit-code --quiet migrations/schema-${{ env.PGMAJOR }}.sql; then
             echo "Detected changes in schema.sql:"
             git diff migrations/schema-${{ env.PGMAJOR }}.sql

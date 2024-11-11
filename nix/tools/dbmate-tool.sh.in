@@ -153,24 +153,11 @@ trim_schema() {
         ;;
     esac
 }
-migrate_version() {
-    overmind kill || true
-    rm -f .overmind.sock Procfile || true
-    PSQLBIN=$(nix build --no-link "$FLAKE_URL#psql_$PSQL_VERSION/bin" --json | jq -r '.[].outputs.out + "/bin"')
-    echo "Using PostgreSQL version $PSQL_VERSION from $PSQLBIN"
-
-    # Create Procfile
-    cat > Procfile << EOF
+overmind_start() {
+        cat > Procfile << EOF
 postgres_${PSQL_VERSION}: exec nix run "$FLAKE_URL#start-server" "$PSQL_VERSION"
 EOF
-
-    echo "Starting PostgreSQL server with: exec nix run $FLAKE_URL#start-server $PSQL_VERSION"
-    cat Procfile
-
-    # Start services with Overmind
-    overmind start -D 
-
-
+    overmind start -D
     echo "Waiting for overmind socket..."
     max_wait=5
     count=0
@@ -185,6 +172,16 @@ EOF
         sleep 1
         count=$((count + 1))
     done
+}
+migrate_version() {
+    overmind kill || true
+    rm -f .overmind.sock Procfile || true
+    PSQLBIN=$(nix build --no-link "$FLAKE_URL#psql_$PSQL_VERSION/bin" --json | jq -r '.[].outputs.out + "/bin"')
+    echo "Using PostgreSQL version $PSQL_VERSION from $PSQLBIN"
+    
+    # Start overmind
+    overmind_start
+    echo "Waiting for overmind socket..."
 
 
     echo "Waiting for PostgreSQL to be ready..."
