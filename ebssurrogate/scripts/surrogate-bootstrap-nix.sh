@@ -351,7 +351,7 @@ setup_locale
 # create_swapfile
 # format_build_partition
 #pull_docker
-setup_chroot_environment
+# setup_chroot_environment
 #download_ccache
 execute_playbook
 # random_stuff
