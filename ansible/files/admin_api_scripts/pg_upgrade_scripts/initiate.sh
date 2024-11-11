@@ -39,6 +39,7 @@ MOUNT_POINT="/data_migration"
 LOG_FILE="/var/log/pg-upgrade-initiate.log"
 
 POST_UPGRADE_EXTENSION_SCRIPT="/tmp/pg_upgrade/pg_upgrade_extensions.sql"
+POST_UPGRADE_POSTGRES_PERMS_SCRIPT="/tmp/pg_upgrade/pg_upgrade_postgres_perms.sql"
 OLD_PGVERSION=$(run_sql -A -t -c "SHOW server_version;")
 
 SERVER_LC_COLLATE=$(run_sql -A -t -c "SHOW lc_collate;")
@@ -131,6 +132,22 @@ cleanup() {
 
     echo "Resetting postgres database connection limit"
     retry 5 run_sql -c "ALTER DATABASE postgres CONNECTION LIMIT -1;"
+
+    echo "Making sure postgres still has access to pg_shadow"
+    cat << EOF >> $POST_UPGRADE_POSTGRES_PERMS_SCRIPT
+DO \$\$
+begin
+  if exists (select from pg_authid where rolname = 'pg_read_all_data') then
+    execute('grant pg_read_all_data to postgres');
+  end if;
+end
+\$\$;
+grant pg_signal_backend to postgres;
+EOF
+
+    if [ -f $POST_UPGRADE_POSTGRES_PERMS_SCRIPT ]; then
+        retry 5 run_sql -f $POST_UPGRADE_POSTGRES_PERMS_SCRIPT
+    fi
 
     if [ -z "$IS_CI" ] && [ -z "$IS_LOCAL_UPGRADE" ]; then
         echo "Unmounting data disk from ${MOUNT_POINT}"
@@ -426,6 +443,7 @@ EOF
     cp -R /etc/postgresql-custom/* "$MOUNT_POINT/conf/"
     # removing supautils config as to allow the latest one provided by the latest image to be used
     rm -f "$MOUNT_POINT/conf/supautils.conf" || true
+    rm -rf "$MOUNT_POINT/conf/extension-custom-scripts" || true
 
     # removing wal-g config as to allow it to be explicitly enabled on the new instance
     rm -f "$MOUNT_POINT/conf/wal-g.conf"

@@ -106,6 +106,9 @@ begin;
 create role supabase_tmp superuser;
 set session authorization supabase_tmp;
 
+-- to handle snowflakes that happened in the past
+revoke supabase_admin from authenticator;
+
 do $$
 begin
   if exists (select from pg_extension where extname = 'timescaledb') then
@@ -537,16 +540,6 @@ end
 $$;
 
 alter database postgres connection limit -1;
-
--- #incident-2024-09-12-project-upgrades-are-temporarily-disabled
-do $$
-begin
-  if exists (select from pg_authid where rolname = 'pg_read_all_data') then
-    execute('grant pg_read_all_data to postgres');
-  end if;
-end
-$$;
-grant pg_signal_backend to postgres;
 
 set session authorization supabase_admin;
 drop role supabase_tmp;
