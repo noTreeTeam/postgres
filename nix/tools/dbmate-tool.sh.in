@@ -4,7 +4,7 @@
 [ ! -z "$DEBUG" ] && set -x
 
 # Default values
-PSQL_VERSION="15"
+PSQL_VERSION="ALL"
 MIGRATION_FILE=""
 PORTNO="@PGSQL_DEFAULT_PORT@"
 PGSQL_SUPERUSER=@PGSQL_SUPERUSER@
@@ -12,7 +12,8 @@ PGPASSWORD="${PGPASSWORD:-postgres}"
 PGSQL_USER="postgres"
 FLAKE_URL="github:supabase/postgres"
 MIGRATIONS_DIR="@MIGRATIONS_DIR@"
-
+CURRENT_SYSTEM=@CURRENT_SYSTEM@
+ANSIBLE_VARS=@ANSIBLE_VARS@
 # Cleanup function
 cleanup() {
     echo "Cleaning up..."
@@ -43,14 +44,13 @@ cleanup() {
 }
 
 # Set up trap for cleanup on script exit
-trap cleanup EXIT
 
 # Function to display help
 print_help() {
     echo "Usage: nix run .#dbmate-tool -- [options]"
     echo
     echo "Options:"
-    echo "  -v, --version [15|16|orioledb-17]  Specify the PostgreSQL version to use (required defaults to --all)"
+    echo "  -v, --version [15|16|orioledb-17|all]  Specify the PostgreSQL version to use (required defaults to --version all)"
     echo "  -p, --port PORT                    Specify the port number to use (default: 5435)"
     echo "  -h, --help                         Show this help message"
     echo
@@ -116,8 +116,6 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-PSQLBIN=$(nix build --no-link "$FLAKE_URL#psql_$PSQL_VERSION/bin" --json | jq -r '.[].outputs.out + "/bin"')
-echo "Using PostgreSQL version $PSQL_VERSION from $PSQLBIN"
 # Function to wait for PostgreSQL to be ready
 wait_for_postgres() {
     local max_attempts=30  # Increased significantly
@@ -144,89 +142,122 @@ wait_for_postgres() {
     return 1
 }
 
-# Create Procfile
-cat > Procfile << EOF
+trim_schema() {
+    case "$CURRENT_SYSTEM" in
+    "x86_64-darwin"|"aarch64-darwin")
+        sed -i '' '/INSERT INTO public.schema_migrations/,$d' "./db/schema.sql"
+        echo "Matched: $CURRENT_SYSTEM"
+        ;;
+    *)
+        sed -i '/INSERT INTO public.schema_migrations/,$d' "./db/schema.sql"
+        ;;
+    esac
+}
+migrate_version() {
+    overmind kill || true
+    rm -f .overmind.sock Procfile || true
+    PSQLBIN=$(nix build --no-link "$FLAKE_URL#psql_$PSQL_VERSION/bin" --json | jq -r '.[].outputs.out + "/bin"')
+    echo "Using PostgreSQL version $PSQL_VERSION from $PSQLBIN"
+
+    # Create Procfile
+    cat > Procfile << EOF
 postgres_${PSQL_VERSION}: exec nix run "$FLAKE_URL#start-server" "$PSQL_VERSION"
 EOF
 
-echo "Starting PostgreSQL server with: exec nix run $FLAKE_URL#start-server $PSQL_VERSION"
-cat Procfile
+    echo "Starting PostgreSQL server with: exec nix run $FLAKE_URL#start-server $PSQL_VERSION"
+    cat Procfile
 
-# Start services with Overmind
-overmind start -D 
+    # Start services with Overmind
+    overmind start -D 
 
 
-echo "Waiting for overmind socket..."
-max_wait=5
-count=0
-while [ $count -lt $max_wait ]; do
-    if [ -S "./.overmind.sock" ]; then
-        # Found the socket, give it a moment to be ready
-        sleep 2
-        echo "Socket file found and ready"
-        break
+    echo "Waiting for overmind socket..."
+    max_wait=5
+    count=0
+    while [ $count -lt $max_wait ]; do
+        if [ -S "./.overmind.sock" ]; then
+            # Found the socket, give it a moment to be ready
+            sleep 2
+            echo "Socket file found and ready"
+            break
+        fi
+        echo "Waiting for socket file (attempt $count/$max_wait)"
+        sleep 1
+        count=$((count + 1))
+    done
+
+
+    echo "Waiting for PostgreSQL to be ready..."
+
+    #Wait for PostgreSQL to be ready to accept connections
+    if ! wait_for_postgres; then
+        echo "Failed to connect to PostgreSQL server"
+        exit 1
     fi
-    echo "Waiting for socket file (attempt $count/$max_wait)"
-    sleep 1
-    count=$((count + 1))
-done
 
+    echo "PostgreSQL server is ready"
 
-echo "Waiting for PostgreSQL to be ready..."
-
-#Wait for PostgreSQL to be ready to accept connections
-if ! wait_for_postgres; then
-    echo "Failed to connect to PostgreSQL server"
-    exit 1
-fi
-
-echo "PostgreSQL server is ready"
-
-# Configure PostgreSQL roles and permissions
-if ! "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U "$PGSQL_SUPERUSER" -p "$PORTNO" -h localhost -d postgres <<-EOSQL
-    create role postgres superuser login password '$PGPASSWORD';
-    alter database postgres owner to postgres;
+    # Configure PostgreSQL roles and permissions
+    if ! "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U "$PGSQL_SUPERUSER" -p "$PORTNO" -h localhost -d postgres <<-EOSQL
+create role postgres superuser login password '$PGPASSWORD';
+alter database postgres owner to postgres;
 EOSQL
-then
-    echo "Failed to configure PostgreSQL roles and permissions"
-    exit 1
-fi
-#set db url to run dbmate
-export DATABASE_URL="postgres://$PGSQL_USER:$PGPASSWORD@localhost:$PORTNO/postgres?sslmode=disable"
+    then
+        echo "Failed to configure PostgreSQL roles and permissions"
+        exit 1
+    fi
+    #set db url to run dbmate
+    export DATABASE_URL="postgres://$PGSQL_USER:$PGPASSWORD@localhost:$PORTNO/postgres?sslmode=disable"
+    #export path so dbmate can find correct psql and pg_dump
+    export PATH="$PSQLBIN:$PATH"
+    # run init scripts
+    if ! dbmate --migrations-dir "$MIGRATIONS_DIR/init-scripts" up; then
+        echo "Error: Initial migration failed"
+        exit 1
+    fi
 
-ls -la "$MIGRATIONS_DIR"
-pwd
-# First dbmate command
-if ! dbmate --migrations-dir "$MIGRATIONS_DIR/init-scripts" up; then
-    echo "Error: Initial migration failed"
-    exit 1
-fi
+    # Password update command
+    if ! "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U postgres -p "$PORTNO" -h localhost -c "ALTER USER supabase_admin WITH PASSWORD '$PGPASSWORD'"; then
+        echo "Error: Failed to update supabase_admin password"
+        exit 1
+    fi
 
-# Password update command
-if ! "${PSQLBIN}/psql" -v ON_ERROR_STOP=1 --no-password --no-psqlrc -U postgres -p "$PORTNO" -h localhost -c "ALTER USER supabase_admin WITH PASSWORD '$PGPASSWORD'"; then
-    echo "Error: Failed to update supabase_admin password"
-    exit 1
-fi
+    # Set up database URL
+    export DATABASE_URL="postgres://$PGSQL_SUPERUSER:$PGPASSWORD@localhost:$PORTNO/postgres?sslmode=disable"
+    # Run migrations
+    if ! dbmate --migrations-dir "$MIGRATIONS_DIR/migrations" up; then
+        echo "Error: Final migration failed"
+        exit 1
+    fi
 
-# Set up database URL
-export DATABASE_URL="postgres://$PGSQL_SUPERUSER:$PGPASSWORD@localhost:$PORTNO/postgres?sslmode=disable"
+    echo "Running dbmate dump with $PSQLBIN"
+    dbmate dump
 
-# Second dbmate command
-if ! dbmate --migrations-dir "$MIGRATIONS_DIR/migrations" up; then
-    echo "Error: Final migration failed"
-    exit 1
-fi
+    echo "CURRENT_SYSTEM: $CURRENT_SYSTEM"
+    if [ -f "./db/schema.sql" ]; then
+        trim_schema
+        cp "./db/schema.sql" "./migrations/schema-$PSQL_VERSION.sql"
+        echo "Schema file moved to ./migrations/schema-$PSQL_VERSION.sql"
+        echo "PSQLBIN is $PSQLBIN"
+    else
+        echo "Warning: schema.sql file not found in ./db directory"
+        exit 1
+    fi
 
-if [ -f "./db/schema.sql" ]; then
-    mv "./db/schema.sql" "./db/schema-$PSQL_VERSION.sql"
-    rm -rf ./db
-    echo "Schema file moved to ./migrations/schema-$PSQL_VERSION.sql"
+    # If we get here, all commands succeeded
+    echo "PostgreSQL migration completed successfully"
+}
+
+if [ "$PSQL_VERSION" == "all" ]; then
+    VERSIONS=$(yq '.postgres_major[]' "$ANSIBLE_VARS" | tr -d '"')
+    echo "$VERSIONS" | while read -r version; do
+        PSQL_VERSION="$version"
+        echo "Migrating to PostgreSQL version $PSQL_VERSION"
+        migrate_version
+        cleanup
+    done
 else
-    echo "Warning: schema.sql file not found in ./db directory"
-    exit 1
+    echo "Migrating to PostgreSQL version $PSQL_VERSION"
+    migrate_version
+    cleanup
 fi
-
-"${PSQLBIN}/pg_dump" -U "$PGSQL_SUPERUSER" -p "$PORTNO" -h localhost -d postgres -s -f "./pg-dump-schema-$PSQL_VERSION.sql"
-
-# If we get here, all commands succeeded
-echo "PostgreSQL migration completed successfully"

@@ -2,6 +2,15 @@
 # shellcheck shell=bash
 [ ! -z "$DEBUG" ] && set -x
 # first argument should be '15' or '16' for the version
+cleanup() {
+    echo "Cleaning up temporary directory $DATDIR"
+    if [ -d "$DATDIR" ]; then
+        # Change permissions to allow removal
+        chmod -R 700 "$DATDIR" 2>/dev/null || true
+        rm -rf "$DATDIR" 2>/dev/null || sudo rm -rf "$DATDIR"
+    fi
+}
+trap cleanup EXIT
 if [ "$1" == "15" ]; then
     echo "Starting server for PSQL 15"
     PSQL15=@PSQL15_BINDIR@

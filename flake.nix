@@ -536,6 +536,7 @@
           dbmate-tool = 
           let
             migrationsDir = ./migrations/db;
+            ansibleVars = ./ansible/vars.yml;
           in
           pkgs.runCommand "dbmate-tool" {
             buildInputs = with pkgs; [
@@ -543,6 +544,7 @@
               dbmate
               nix
               jq
+              yq
             ];
             nativeBuildInputs = with pkgs; [
               makeWrapper
@@ -553,10 +555,12 @@
             substitute ${./nix/tools/dbmate-tool.sh.in} $out/bin/dbmate-tool \
               --subst-var-by 'PGSQL_DEFAULT_PORT' '${pgsqlDefaultPort}' \
               --subst-var-by 'MIGRATIONS_DIR' $out \
-              --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}'
+              --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}' \
+              --subst-var-by 'ANSIBLE_VARS' ${ansibleVars} \
+              --subst-var-by 'CURRENT_SYSTEM' '${system}'
             chmod +x $out/bin/dbmate-tool
             wrapProgram $out/bin/dbmate-tool \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.overmind pkgs.dbmate pkgs.nix pkgs.jq]}
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.overmind pkgs.dbmate pkgs.nix pkgs.jq pkgs.yq ]}
           '';       
         };
 
