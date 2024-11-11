@@ -35,9 +35,9 @@ jobs:
       matrix:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
         include:
-          - runner: [self-hosted, X64]
+          - runner: ubuntu-22.04
             arch: amd64
-          - runner: arm-runner
+          - runner: ubuntu-22.04-arm64
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
