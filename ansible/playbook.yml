@@ -26,6 +26,13 @@
     - set_fact:
         parallel_jobs: 16
 
+    - name: create dir for pg to start
+      become: yes
+      shell: |
+        mkdir /run/postgresql
+        chown postgres:postgres -R /run/postgresql
+      when: stage2_nix
+
     - name: Install Postgres from source
       import_tasks: tasks/setup-postgres.yml
 

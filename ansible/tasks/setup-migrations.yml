@@ -3,7 +3,7 @@
   register: retval
   when: debpkg_mode or stage2_nix
   args:
-    chdir: /tmp/migrations/db
+    chdir: ./migrations/db
   failed_when: retval.rc != 0
 
 - name: Create /root/MIGRATION-AMI file
