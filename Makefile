@@ -12,6 +12,6 @@ focal.img: output-cloudimg/packer-cloudimg
 	qemu-img convert -O qcow2 output-cloudimg/packer-cloudimg focal.img
 
 build: focal.img
-	nerdctl build . -t supabase-postgres-test:$(GIT_SHA) --namespace k8s.io -f ./Dockerfile-kubevirt
+	sudo nerdctl build . -t supabase-postgres-test:$(GIT_SHA) --namespace k8s.io -f ./Dockerfile-kubevirt
 
 .PHONY: build init
