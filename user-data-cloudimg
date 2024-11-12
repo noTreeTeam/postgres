@@ -15,7 +15,7 @@ disable_root: false
 preserve_hostname: true
 runcmd:
 # # TODO (darora): we'll need to disable root access and password access
-#   - sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
+  - sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
   - systemctl restart ssh
 bootcmd:
   - mkdir /run/packer_backup
