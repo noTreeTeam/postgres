@@ -156,7 +156,7 @@ source "qemu" "cloudimg" {
   ssh_handshake_attempts = 500
   ssh_password           = "ubuntu"
   ssh_timeout            = "1h"
-  ssh_username           = "root"
+  ssh_username           = "ubuntu"
   ssh_wait_timeout       = "1h"
   use_backing_file       = true
   accelerator = "kvm"
