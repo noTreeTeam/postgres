@@ -87,8 +87,8 @@ expected_results = {
     ],
     "pgbouncer": [
         {"groupname":"pgbouncer","username":"pgbouncer"},
-        {"groupname":"ssl-cert","username":"pgbouncer"},
-        {"groupname":"postgres","username":"pgbouncer"}
+        {"groupname":"postgres","username":"pgbouncer"},
+        {"groupname":"ssl-cert","username":"pgbouncer"}
     ],
     "gotrue": [
         {"groupname":"gotrue","username":"gotrue"}
@@ -103,23 +103,23 @@ expected_results = {
         {"groupname":"nginx","username":"nginx"}
     ],
     "vector": [
-        {"groupname":"vector","username":"vector"},
         {"groupname":"adm","username":"vector"},
+        {"groupname":"postgres","username":"vector"},
         {"groupname":"systemd-journal","username":"vector"},
-        {"groupname":"postgres","username":"vector"}
+        {"groupname":"vector","username":"vector"}
     ],
     "adminapi": [
-        {"groupname":"adminapi","username":"adminapi"},
-        {"groupname":"root","username":"adminapi"},
-        {"groupname":"systemd-journal","username":"adminapi"},
         {"groupname":"admin","username":"adminapi"},
-        {"groupname":"postgres","username":"adminapi"},
-        {"groupname":"pgbouncer","username":"adminapi"},
-        {"groupname":"wal-g","username":"adminapi"},
-        {"groupname":"postgrest","username":"adminapi"},
+        {"groupname":"adminapi","username":"adminapi"},
         {"groupname":"envoy","username":"adminapi"},
         {"groupname":"kong","username":"adminapi"},
-        {"groupname":"vector","username":"adminapi"}
+        {"groupname":"pgbouncer","username":"adminapi"},
+        {"groupname":"postgres","username":"adminapi"},
+        {"groupname":"postgrest","username":"adminapi"},
+        {"groupname":"root","username":"adminapi"},
+        {"groupname":"systemd-journal","username":"adminapi"},
+        {"groupname":"vector","username":"adminapi"},
+        {"groupname":"wal-g","username":"adminapi"}
     ],
     "postgrest": [
         {"groupname":"postgrest","username":"postgrest"}
