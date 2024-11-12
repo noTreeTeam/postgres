@@ -2,11 +2,20 @@
 
 [ ! -z "$DEBUG" ] && set -x
 
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
 print_help() {
     echo "Usage: nix run .#local-infra-bootstrap -- [options]"
     echo
     echo "Options:"
     echo "  -h, --help                         Show this help message"
+    echo "  -s, --setup                        Setup the local infrastructure for development"
+    echo "  --aws-yubikey-setup               Install AWS CLI tools with YubiKey support"
+    echo "  --aws-yubikey-setup-no-key        Install AWS CLI tools without YubiKey"
     echo
     echo "Description:"
     echo "  Bootstrap the local infrastructure for development."
@@ -14,6 +23,7 @@ print_help() {
     echo
     echo "Examples:"
     echo "  nix run .#local-infra-bootstrap"
+    echo "  nix run .#local-infra-bootstrap -- --aws-yubikey-setup"
 }
 
 check_brew() {
@@ -70,25 +80,44 @@ install_app() {
     local app=$1
     echo "Installing $app..."
     
-    if [ "$app" = "orbstack" ]; then
-        brew install --cask orbstack
-        if [ -d "/Applications/OrbStack.app" ]; then
-            echo "✅ OrbStack installed successfully"
-            echo "⚠️  Important: Please open OrbStack.app to complete the setup"
-            return 0
-        else
-            return 1
-        fi
-    else
-        brew install "$app"
-        if [ $? -eq 0 ]; then
-            echo "✅ Successfully installed $app"
-            return 0
-        else
-            echo "❌ Failed to install $app"
-            return 1
-        fi
-    fi
+    case "$app" in
+        "orbstack")
+            brew install --cask "$app"
+            if [ -d "/Applications/OrbStack.app" ]; then
+                echo "✅ OrbStack installed successfully"
+                echo "⚠️  Important: Please open OrbStack.app to complete the setup"
+                return 0
+            fi
+            ;;
+        "aws-vault")
+            brew install --cask "$app"
+            # Give the system a moment to complete the linking
+            sleep 1
+            if [ -f "/opt/homebrew/bin/aws-vault" ] || [ -f "/usr/local/bin/aws-vault" ]; then
+                echo "✅ aws-vault installed successfully"
+                return 0
+            fi
+            ;;
+        "awscli")
+            brew install "$app"
+            # Reload shell environment to ensure AWS CLI is in PATH
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+            if command -v aws >/dev/null 2>&1; then
+                echo "✅ $app installed successfully"
+                return 0
+            fi
+            ;;
+        "dbmate"|*)
+            brew install "$app"
+            if command -v "$app" >/dev/null 2>&1; then
+                echo "✅ $app installed successfully"
+                return 0
+            fi
+            ;;
+    esac
+
+    echo "❌ Failed to install $app"
+    return 1
 }
 
 install_prerequisites() {
@@ -96,8 +125,8 @@ install_prerequisites() {
     echo
 
     # Define apps and their check commands
-    local apps=("awscli" "dbmate" "orbstack")
-    local commands=("aws" "dbmate" "orbstack")
+    local apps=("awscli" "dbmate" "orbstack" "corepack" "aws-vault")
+    local commands=("aws" "dbmate" "orbstack" "corepack" "aws-vault")
     
     # Check each app and prompt for installation if missing
     for i in "${!apps[@]}"; do
@@ -120,7 +149,41 @@ install_prerequisites() {
     echo "=== Prerequisites Check Complete ==="
 }
 
-# parse arguments
+# AWS YubiKey Setup Function - Only installs required tools
+install_aws_tools() {
+    echo -e "\n${BOLD}Installing required AWS CLI tools...${NC}"
+    
+    # Check and install AWS CLI
+    if ! command -v aws >/dev/null 2>&1; then
+        brew install awscli
+        echo -e "✅ AWS CLI installed"
+    else
+        echo -e "✅ AWS CLI already installed"
+    fi
+    
+    # Check and install AWS Vault
+    if ! command -v aws-vault >/dev/null 2>&1; then
+        brew install homebrew/cask/aws-vault
+        echo -e "✅ AWS Vault installed"
+    else
+        echo -e "✅ AWS Vault already installed"
+    fi
+    
+    if [[ "$1" != "--no-yubikey" ]]; then
+        # Check and install YubiKey Manager
+        if ! command -v ykman >/dev/null 2>&1; then
+            brew install ykman
+            echo -e "✅ YubiKey Manager installed"
+        else
+            echo -e "✅ YubiKey Manager already installed"
+        fi
+    fi
+
+    echo -e "\n${BOLD}✅ AWS CLI tools installation complete${NC}"
+    echo -e "Please follow the AWS CLI MFA+YubiKey setup documentation for next steps."
+}
+
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -132,13 +195,22 @@ while [[ $# -gt 0 ]]; do
             install_prerequisites
             shift
             ;;
+        --aws-yubikey-setup)
+            check_brew
+            install_aws_tools
+            shift
+            ;;
+        --aws-yubikey-setup-no-key)
+            check_brew
+            install_aws_tools "--no-yubikey"
+            shift
+            ;;
         *)
             echo "Unknown argument: $1"
             print_help
             exit 1
             ;;
     esac
-    shift
 done
 
 # If no arguments provided, show help
