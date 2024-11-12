@@ -10,7 +10,7 @@ users:
     ssh_redired_user: false
     sudo: "ALL=(ALL) NOPASSWD:ALL"
     shell: /usr/bin/bash
-    groups: [adm, audio, cdrom, dialout, dip, floopy, lxd, netdev, plugdev, sudo, video]
+    groups: [adm, audio, cdrom, dialout, dip, floppy, lxd, netdev, plugdev, sudo, video]
 ssh_pwauth: True
 disable_root: false
 preserve_hostname: true
