@@ -8,20 +8,7 @@ expected_results = {
         {"groupname": "postgres", "username": "postgres"},
         {"groupname": "ssl-cert", "username": "postgres"}
     ],
-    "ubuntu": [
-        {"groupname":"ubuntu","username":"ubuntu"},
-        {"groupname":"adm","username":"ubuntu"},
-        {"groupname":"dialout","username":"ubuntu"},
-        {"groupname":"cdrom","username":"ubuntu"},
-        {"groupname":"floppy","username":"ubuntu"},
-        {"groupname":"sudo","username":"ubuntu"},
-        {"groupname":"audio","username":"ubuntu"},
-        {"groupname":"dip","username":"ubuntu"},
-        {"groupname":"video","username":"ubuntu"},
-        {"groupname":"plugdev","username":"ubuntu"},
-        {"groupname":"lxd","username":"ubuntu"},
-        {"groupname":"netdev","username":"ubuntu"}
-    ],
+    "ubuntu": [{'groupname': 'adm', 'username': 'ubuntu'}, {'groupname': 'audio', 'username': 'ubuntu'}, {'groupname': 'cdrom', 'username': 'ubuntu'}, {'groupname': 'dialout', 'username': 'ubuntu'}, {'groupname': 'dip', 'username': 'ubuntu'}, {'groupname': 'floppy', 'username': 'ubuntu'}, {'groupname': 'lxd', 'username': 'ubuntu'}, {'groupname': 'netdev', 'username': 'ubuntu'}, {'groupname': 'plugdev', 'username': 'ubuntu'}, {'groupname': 'sudo', 'username': 'ubuntu'}, {'groupname': 'ubuntu', 'username': 'ubuntu'}, {'groupname': 'video', 'username': 'ubuntu'}],
     "root": [
         {"groupname":"root","username":"root"}
     ],
@@ -144,6 +131,7 @@ expected_results = {
         {"groupname":"systemd-coredump","username":"systemd-coredump"}
     ]
 }
+
 # This program depends on osquery being installed on the system
 # Function to run osquery
 def run_osquery(query):
@@ -174,20 +162,20 @@ def compare_results(username, query_result):
 
 def check_nixbld_users():
     query = """
-    SELECT u.username, g.groupname 
-    FROM users u 
-    JOIN user_groups ug ON u.uid = ug.uid 
-    JOIN groups g ON ug.gid = g.gid 
+    SELECT u.username, g.groupname
+    FROM users u
+    JOIN user_groups ug ON u.uid = ug.uid
+    JOIN groups g ON ug.gid = g.gid
     WHERE u.username LIKE 'nixbld%';
     """
     query_result = run_osquery(query)
     parsed_result = parse_json(query_result)
-    
+
     for user in parsed_result:
         if user['groupname'] != 'nixbld':
             print(f"User '{user['username']}' is in group '{user['groupname']}' instead of 'nixbld'.")
             sys.exit(1)
-    
+
     print("All nixbld users are in the 'nixbld' group.")
 
 # Define usernames for which you want to compare results
@@ -195,7 +183,7 @@ usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "game
 
 # Iterate over usernames, run the query, and compare results
 for username in usernames:
-    query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}';"
+    query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}' ORDER BY g.groupname;"
     query_result = run_osquery(query)
     parsed_result = parse_json(query_result)
     compare_results(username, parsed_result)
