@@ -162,6 +162,21 @@ build {
   name    = "cloudimg.image"
   sources = ["source.qemu.cloudimg"]
 
+  # Copy ansible playbook
+  provisioner "shell" {
+    inline = ["mkdir /tmp/ansible-playbook"]
+  }
+
+  provisioner "file" {
+    source = "ansible"
+    destination = "/tmp/ansible-playbook"
+  }
+
+  provisioner "file" {
+    source = "scripts"
+    destination = "/tmp/ansible-playbook"
+  }
+
   provisioner "shell" {
     environment_vars = [
       # "ARGS=${var.ansible_arguments}",
@@ -173,7 +188,7 @@ build {
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/surrogate-bootstrap-nix.sh"
-    execute_command = "sudo -S sh -c '. {{.EnvVarFile}} && {{.Path}}'"
+    execute_command = "sudo -S sh -c '. {{.EnvVarFile}} && cd /tmp/ansible-playbook && {{.Path}}'"
     start_retry_timeout = "5m"
     skip_clean = true
   }
