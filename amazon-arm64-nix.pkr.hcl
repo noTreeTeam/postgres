@@ -128,7 +128,7 @@ build {
 
 source "qemu" "cloudimg" {
   boot_wait      = "2s"
-  cpus           = 8
+  cpus           = 12
   disk_image     = true
   disk_size      = "30G"
   format         = "qcow2"
@@ -137,7 +137,7 @@ source "qemu" "cloudimg" {
   http_directory = "http"
   iso_checksum   = "file:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS"
   iso_url        = "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img"
-  memory         = 2048
+  memory         = 20000
   qemu_binary    = "qemu-system-aarch64"
   qemu_img_args {
     create = ["-F", "qcow2"]
