@@ -82,8 +82,8 @@ expected_results = {
         {"groupname":"nogroup","username":"sshd"}
     ],
     "wal-g": [
-        {"groupname":"wal-g","username":"wal-g"},
-        {"groupname":"postgres","username":"wal-g"}
+        {"groupname":"postgres","username":"wal-g"},
+        {"groupname":"wal-g","username":"wal-g"}
     ],
     "pgbouncer": [
         {"groupname":"pgbouncer","username":"pgbouncer"},

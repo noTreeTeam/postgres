@@ -186,6 +186,11 @@ build {
     destination = "/tmp"
   }
 
+  provisioner "file" {
+    source = "ebssurrogate/files/unit-tests"
+    destination = "/tmp"
+  }
+
   provisioner "shell" {
     environment_vars = [
       # "ARGS=${var.ansible_arguments}",
