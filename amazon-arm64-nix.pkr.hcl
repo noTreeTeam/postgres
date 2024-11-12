@@ -181,6 +181,11 @@ build {
     destination = "/tmp/ansible-playbook"
   }
 
+  provisioner "file" {
+    source = "migrations"
+    destination = "/tmp"
+  }
+
   provisioner "shell" {
     environment_vars = [
       # "ARGS=${var.ansible_arguments}",
