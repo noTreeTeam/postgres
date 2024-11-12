@@ -246,6 +246,8 @@
   become: yes
   become_user: postgres
   shell: |
+    mkdir -p /run/postgresql
+    chown -R postgres:postgres /run/postgresql
     source /var/lib/postgresql/.bashrc
     /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data start
   environment:
