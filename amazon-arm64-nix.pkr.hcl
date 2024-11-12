@@ -38,6 +38,10 @@ variable "environment" {
   default = "prod"
 }
 
+variable "git_sha" {
+  type    = string
+}
+
 # variable "region" {
 #   type    = string
 # }
@@ -185,6 +189,7 @@ build {
       # "DOCKER_IMAGE=${var.docker_image}",
       # "DOCKER_IMAGE_TAG=${var.docker_image_tag}",
       # "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
+      "GIT_SHA=${var.git_sha}"
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/surrogate-bootstrap-nix.sh"
