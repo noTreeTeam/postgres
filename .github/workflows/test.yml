@@ -59,7 +59,7 @@ jobs:
 
       - name: Generate common-nix.vars.pkr.hcl
         run: |
-          PG_VERSION=$(sudo nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
+          PG_VERSION=$(nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
           PG_VERSION=$(echo $PG_VERSION | tr -d '"')  # Remove any surrounding quotes
           echo 'postgres-version = "'$PG_VERSION'"' > common-nix.vars.pkr.hcl
           # Ensure there's a newline at the end of the file
@@ -72,7 +72,7 @@ jobs:
       - name: Generate args
         id: args
         run: |
-          ARGS=$(sudo nix run nixpkgs#yq -- 'to_entries | map(select(.value|type == "!!str")) | map(.key + "=" + .value) | join("\n")' ansible/vars.yml)
+          ARGS=$(nix run nixpkgs#yq -- 'to_entries | map(select(.value|type == "!!str")) | map(.key + "=" + .value) | join("\n")' ansible/vars.yml)
           echo "result<<EOF" >> $GITHUB_OUTPUT
           echo "$ARGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -81,7 +81,7 @@ jobs:
       - name: verify schema.sql is committed
         run: |
           GIT_SHA=${{github.sha}}
-          sudo nix run github:supabase/postgres/${GIT_SHA}#dbmate-tool -- --version ${{ env.PGMAJOR }}
+          nix run github:supabase/postgres/${GIT_SHA}#dbmate-tool -- --version ${{ env.PGMAJOR }}
           if ! git diff --exit-code --quiet migrations/schema-${{ env.PGMAJOR }}.sql; then
             echo "Detected changes in schema.sql:"
             git diff migrations/schema-${{ env.PGMAJOR }}.sql
