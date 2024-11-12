@@ -561,7 +561,12 @@
             chmod +x $out/bin/dbmate-tool
             wrapProgram $out/bin/dbmate-tool \
               --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.overmind pkgs.dbmate pkgs.nix pkgs.jq pkgs.yq ]}
-          '';       
+          '';    
+          local-infra-bootstrap = pkgs.runCommand "local-infra-bootstrap" { } ''
+            mkdir -p $out/bin
+            substitute ${./nix/tools/local-infra-bootstrap.sh.in} $out/bin/local-infra-bootstrap
+            chmod +x $out/bin/local-infra-bootstrap
+          '';   
         };
 
 
@@ -683,6 +688,7 @@
             pg-restore = mkApp "pg-restore" "pg-restore";
             dbmate-tool = mkApp "dbmate-tool" "dbmate-tool";
             migration-unit-tests = mkApp "migration-unit-tests" "migration-unit-tests";
+            local-infra-bootstrap = mkApp "local-infra-bootstrap" "local-infra-bootstrap";
           };
 
         # 'devShells.default' lists the set of packages that are included in the

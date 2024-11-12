@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+
+[ ! -z "$DEBUG" ] && set -x
+
+print_help() {
+    echo "Usage: nix run .#local-infra-bootstrap -- [options]"
+    echo
+    echo "Options:"
+    echo "  -h, --help                         Show this help message"
+    echo
+    echo "Description:"
+    echo "  Bootstrap the local infrastructure for development."
+    echo "  This tool wraps homebrew and other tools to install the necessary dependencies."
+    echo
+    echo "Examples:"
+    echo "  nix run .#local-infra-bootstrap"
+}
+
+check_brew() {
+    if command -v brew >/dev/null 2>&1; then
+        echo "Homebrew is installed."
+        echo "Version: $(brew --version)"
+    else
+        echo "Homebrew is not installed."
+        echo "To install Homebrew, run the following command:"
+        echo
+        echo '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        echo
+        echo "After installation, you may need to add Homebrew to your PATH:"
+        echo
+        echo "For Intel Macs:"
+        echo 'echo '\''eval "$(/usr/local/bin/brew shellenv)"'\'' >> ~/.zprofile'
+        echo 'eval "$(/usr/local/bin/brew shellenv)"'
+        echo
+        echo "For Apple Silicon Macs (M1/M2/M3):"
+        echo 'echo '\''eval "$(/opt/homebrew/bin/brew shellenv)"'\'' >> ~/.zprofile'
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+        exit 1
+    fi
+}
+
+check_app() {
+    local brew_name=$1
+    local check_command=$2
+
+    echo "Checking $brew_name..."
+    
+    # Special case for OrbStack
+    if [ "$brew_name" = "orbstack" ]; then
+        if [ -d "/Applications/OrbStack.app" ]; then
+            echo "✅ $brew_name is installed"
+            return 0
+        else
+            echo "❌ $brew_name is not installed"
+            return 1
+        fi
+    fi
+
+    # Standard command check
+    if command -v "$check_command" >/dev/null 2>&1; then
+        echo "✅ $brew_name is installed"
+        return 0
+    else
+        echo "❌ $brew_name is not installed"
+        return 1
+    fi
+}
+
+install_app() {
+    local app=$1
+    echo "Installing $app..."
+    
+    if [ "$app" = "orbstack" ]; then
+        brew install --cask orbstack
+        if [ -d "/Applications/OrbStack.app" ]; then
+            echo "✅ OrbStack installed successfully"
+            echo "⚠️  Important: Please open OrbStack.app to complete the setup"
+            return 0
+        else
+            return 1
+        fi
+    else
+        brew install "$app"
+        if [ $? -eq 0 ]; then
+            echo "✅ Successfully installed $app"
+            return 0
+        else
+            echo "❌ Failed to install $app"
+            return 1
+        fi
+    fi
+}
+
+install_prerequisites() {
+    echo "=== Checking Prerequisites ==="
+    echo
+
+    # Define apps and their check commands
+    local apps=("awscli" "dbmate" "orbstack")
+    local commands=("aws" "dbmate" "orbstack")
+    
+    # Check each app and prompt for installation if missing
+    for i in "${!apps[@]}"; do
+        local brew_name="${apps[$i]}"
+        local check_command="${commands[$i]}"
+        
+        check_app "$brew_name" "$check_command"
+        if [ $? -eq 1 ]; then
+            read -p "Would you like to install $brew_name? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                install_app "$brew_name"
+            else
+                echo "Skipping installation of $brew_name"
+            fi
+        fi
+        echo
+    done
+
+    echo "=== Prerequisites Check Complete ==="
+}
+
+# parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            print_help
+            exit 0
+            ;;
+        -s|--setup)
+            check_brew
+            install_prerequisites
+            shift
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_help
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# If no arguments provided, show help
+if [ $# -eq 0 ]; then
+    print_help
+    exit 0
+fi
