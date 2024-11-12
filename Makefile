@@ -4,4 +4,4 @@ init:
 	packer init amazon-arm64-nix.pkr.hcl
 
 build:
-	packer build --extra-vars "git_sha=$(GIT_SHA)" amazon-arm64-nix.pkr.hcl
+	packer build -var "git_sha=$(GIT_SHA)" amazon-arm64-nix.pkr.hcl
