@@ -388,3 +388,4 @@ EOF
 
 install_nix
 execute_stage2_playbook
+cloud-init clean --logs

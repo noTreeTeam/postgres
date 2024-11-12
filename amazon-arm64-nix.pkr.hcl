@@ -101,126 +101,71 @@ packer {
   }
 }
 
-source "qemu" "supabase_postgres" {
-  vm_name              = "ubuntu-2004-arm64-iso.qcow2"
-  iso_url              = "https://cdimage.ubuntu.com/releases/focal/release/ubuntu-20.04.5-live-server-arm64.iso"
-  # iso_checksum         = "sha256:b8f31413336b9393ad5d8ef0282717b2ab19f007df2e9ed5196c13d8f9153c8b"
-  memory = 20000
-  disk_image = false
-  output_directory = "output_images"
-  shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
-  disk_size = "9000M"
-  format = "qcow2"
-  accelerator = "kvm"
-  net_device = "virtio-net"
-  disk_interface = "virtio"
-  boot_wait = "10s"
-
-  boot_command         = [
-    # Make the language selector appear...
-    " <up><wait>",
-    # ...then get rid of it
-    " <up><wait><esc><wait>",
-
-    # Go to the other installation options menu and leave it
-    "<f6><wait><esc><wait>",
-
-    # Remove the kernel command-line that already exists
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-
-    # Add kernel command-line and start install
-    "/casper/vmlinuz ",
-    "initrd=/casper/initrd ",
-    "autoinstall ",
-    "ds=nocloud-net;s=http://{{.HTTPIP}}:{{.HTTPPort}}/ ",
-    "<enter>"
-  ]
-  http_directory       = "http"
-  ssh_username         = "packer"
-  ssh_password         = "packer"
-  ssh_timeout          = "60m"
+source "null" "dependencies" {
+  communicator = "none"
 }
 
-
-# a build block invokes sources and runs provisioning steps on them.
 build {
-  sources = ["source.qemu.supabase_postgres"]
+  name    = "cloudimg.deps"
+  sources = ["source.null.dependencies"]
 
-  provisioner "file" {
-    source = "ebssurrogate/files/sources-arm64.cfg"
-    destination = "/tmp/sources.list"
+  provisioner "shell-local" {
+    inline = [
+      "cp /usr/share/AAVMF/AAVMF_VARS.fd AAVMF_VARS.fd",
+      "cloud-localds seeds-cloudimg.iso user-data-cloudimg meta-data"
+    ]
+    inline_shebang = "/bin/bash -e"
   }
+}
 
-  provisioner "file" {
-    source = "ebssurrogate/files/ebsnvme-id"
-    destination = "/tmp/ebsnvme-id"
+source "qemu" "cloudimg" {
+  boot_wait      = "2s"
+  cpus           = 8
+  disk_image     = true
+  disk_size      = "30G"
+  format         = "qcow2"
+  # TODO (darora): disable backing image for qcow2
+  headless       = true
+  http_directory = var.http_directory
+  iso_checksum   = "file:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS"
+  iso_url        = "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img"
+  memory         = 2048
+  qemu_binary    = "qemu-system-aarch64"
+  qemu_img_args {
+    create = ["-F", "qcow2"]
   }
+  qemuargs = [
+    ["-machine", "virt"],
+    ["-cpu", "host"],
+    ["-device", "virtio-gpu-pci"],
+    ["-drive", "if=pflash,format=raw,id=ovmf_code,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd"],
+    ["-drive", "if=pflash,format=raw,id=ovmf_vars,file=AAVMF_VARS.fd"],
+    ["-drive", "file=output-cloudimg/packer-cloudimg,format=qcow2"],
+    ["-drive", "file=seeds-cloudimg.iso,format=raw"],
+    ["--enable-kvm"]
+  ]
+  shutdown_command       = "sudo -S shutdown -P now"
+  ssh_handshake_attempts = 500
+  ssh_password           = var.ssh_password
+  ssh_timeout            = var.timeout
+  ssh_username           = var.ssh_username
+  ssh_wait_timeout       = var.timeout
+  use_backing_file       = true
+  accelerator = "kvm"
+}
 
-  provisioner "file" {
-    source = "ebssurrogate/files/70-ec2-nvme-devices.rules"
-    destination = "/tmp/70-ec2-nvme-devices.rules"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/scripts/chroot-bootstrap-nix.sh"
-    destination = "/tmp/chroot-bootstrap-nix.sh"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/cloud.cfg"
-    destination = "/tmp/cloud.cfg"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/vector.timer"
-    destination = "/tmp/vector.timer"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/apparmor_profiles"
-    destination = "/tmp"
-  }
-
-  provisioner "file" {
-    source = "migrations"
-    destination = "/tmp"
-  }
-
-  provisioner "file" {
-    source = "ebssurrogate/files/unit-tests"
-    destination = "/tmp"
-  }
-
-  # Copy ansible playbook
-  provisioner "shell" {
-    inline = ["mkdir /tmp/ansible-playbook"]
-  }
-
-  provisioner "file" {
-    source = "ansible"
-    destination = "/tmp/ansible-playbook"
-  }
-
-  provisioner "file" {
-    source = "scripts"
-    destination = "/tmp/ansible-playbook"
-  }
-
-  provisioner "file" {
-    source = "ansible/vars.yml"
-    destination = "/tmp/ansible-playbook/vars.yml"
-  }
+build {
+  name    = "cloudimg.image"
+  sources = ["source.qemu.cloudimg"]
 
   provisioner "shell" {
     environment_vars = [
-      "ARGS=${var.ansible_arguments}",
-      "DOCKER_USER=${var.docker_user}",
-      "DOCKER_PASSWD=${var.docker_passwd}",
-      "DOCKER_IMAGE=${var.docker_image}",
-      "DOCKER_IMAGE_TAG=${var.docker_image_tag}",
-      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
+      # "ARGS=${var.ansible_arguments}",
+      # "DOCKER_USER=${var.docker_user}",
+      # "DOCKER_PASSWD=${var.docker_passwd}",
+      # "DOCKER_IMAGE=${var.docker_image}",
+      # "DOCKER_IMAGE_TAG=${var.docker_image_tag}",
+      # "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/surrogate-bootstrap-nix.sh"
@@ -229,9 +174,21 @@ build {
     skip_clean = true
   }
 
-  provisioner "file" {
-    source = "/tmp/ansible.log"
-    destination = "/tmp/ansible.log"
-    direction = "download"
-  }
+  # provisioner "shell" {
+  #   environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
+  #   scripts          = ["${path.root}/scripts/cloudimg/cleanup.sh"]
+  # }
+
+  # post-processor "shell-local" {
+  #   inline = [
+  #     "IMG_FMT=qcow2",
+  #     "SOURCE=cloudimg",
+  #     "ROOT_PARTITION=1",
+  #     "DETECT_BLS_BOOT=1",
+  #     "OUTPUT=${var.filename}",
+  #     "source ../scripts/fuse-nbd",
+  #     "source ../scripts/fuse-tar-root"
+  #   ]
+  #   inline_shebang = "/bin/bash -e"
+  # }
 }
