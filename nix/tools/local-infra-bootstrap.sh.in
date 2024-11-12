@@ -120,13 +120,59 @@ install_app() {
     return 1
 }
 
+check_corepack_pnpm() {
+    echo -e "\nChecking Corepack PNPM setup..."
+    
+    # First check if pnpm binary exists in common locations
+    if [ -f "$(which pnpm 2>/dev/null)" ]; then
+        # Try to get version without executing pnpm
+        echo -e "${GREEN}✅ PNPM is enabled${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ PNPM is not installed${NC}"
+        return 1
+    fi
+}
+
+enable_corepack_pnpm() {
+    local pnpm_checked=false
+    
+    if [ "$pnpm_checked" = false ]; then
+        if ! check_corepack_pnpm; then
+            read -p "Would you like to enable PNPM through Corepack? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                echo "Running corepack enable pnpm..."
+                if NODE_OPTIONS="" corepack enable pnpm; then
+                    echo -e "${GREEN}✅ Successfully enabled PNPM through Corepack${NC}"
+                    pnpm_checked=true
+                    return 0
+                else
+                    echo -e "${RED}❌ Failed to enable PNPM through Corepack${NC}"
+                    pnpm_checked=true
+                    return 1
+                fi
+            else
+                echo -e "\n${BOLD}Skipping PNPM setup...${NC}"
+                pnpm_checked=true
+                return 0
+            fi
+        else
+            pnpm_checked=true
+            return 0
+        fi
+    fi
+    return 0
+}
+
 install_prerequisites() {
-    echo "=== Checking Prerequisites ==="
+    echo -e "\n${BOLD}Checking Prerequisites ...${NC}"
     echo
 
     # Define apps and their check commands
-    local apps=("awscli" "dbmate" "orbstack" "corepack" "aws-vault")
-    local commands=("aws" "dbmate" "orbstack" "corepack" "aws-vault")
+    local apps=("awscli" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp")
+    local commands=("aws" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp")
+    local pnpm_checked=false
     
     # Check each app and prompt for installation if missing
     for i in "${!apps[@]}"; do
@@ -138,15 +184,38 @@ install_prerequisites() {
             read -p "Would you like to install $brew_name? (y/n) " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                install_app "$brew_name"
+                case "$brew_name" in
+                    "tmux"|"tmuxp")
+                        echo "Installing $brew_name..."
+                        brew install "$brew_name"
+                        if command -v "$brew_name" >/dev/null 2>&1; then
+                            echo -e "${GREEN}✅ $brew_name installed successfully${NC}"
+                        else
+                            echo -e "${RED}❌ Failed to install $brew_name${NC}"
+                        fi
+                        ;;
+                    *)
+                        install_app "$brew_name"
+                        ;;
+                esac
+                
+                # If we just installed corepack, check and enable pnpm
+                if [ "$brew_name" = "corepack" ] && [ "$pnpm_checked" = false ]; then
+                    NODE_OPTIONS="" enable_corepack_pnpm
+                    pnpm_checked=true
+                fi
             else
-                echo "Skipping installation of $brew_name"
+                echo -e "\n${BOLD}Skipping installation of $brew_name ...${NC}"
             fi
+        elif [ "$brew_name" = "corepack" ] && [ "$pnpm_checked" = false ]; then
+            # If corepack is already installed, check pnpm once
+            NODE_OPTIONS="" enable_corepack_pnpm
+            pnpm_checked=true
         fi
         echo
     done
 
-    echo "=== Prerequisites Check Complete ==="
+    echo -e "\n${BOLD}Prerequisites Check Complete ${NC}"
 }
 
 # AWS YubiKey Setup Function - Only installs required tools
