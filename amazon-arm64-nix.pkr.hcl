@@ -98,6 +98,10 @@ packer {
       source  = "github.com/hashicorp/amazon"
       version = "~> 1"
     }
+    qemu = {
+      version = "~> 1.0"
+      source  = "github.com/hashicorp/qemu"
+    }
   }
 }
 
