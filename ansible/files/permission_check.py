@@ -8,7 +8,20 @@ expected_results = {
         {"groupname": "postgres", "username": "postgres"},
         {"groupname": "ssl-cert", "username": "postgres"}
     ],
-    "ubuntu": [{'groupname': 'adm', 'username': 'ubuntu'}, {'groupname': 'audio', 'username': 'ubuntu'}, {'groupname': 'cdrom', 'username': 'ubuntu'}, {'groupname': 'dialout', 'username': 'ubuntu'}, {'groupname': 'dip', 'username': 'ubuntu'}, {'groupname': 'floppy', 'username': 'ubuntu'}, {'groupname': 'lxd', 'username': 'ubuntu'}, {'groupname': 'netdev', 'username': 'ubuntu'}, {'groupname': 'plugdev', 'username': 'ubuntu'}, {'groupname': 'sudo', 'username': 'ubuntu'}, {'groupname': 'ubuntu', 'username': 'ubuntu'}, {'groupname': 'video', 'username': 'ubuntu'}],
+    "ubuntu": [
+        {'groupname': 'adm', 'username': 'ubuntu'},
+        {'groupname': 'audio', 'username': 'ubuntu'},
+        {'groupname': 'cdrom', 'username': 'ubuntu'},
+        {'groupname': 'dialout', 'username': 'ubuntu'},
+        {'groupname': 'dip', 'username': 'ubuntu'},
+        {'groupname': 'floppy', 'username': 'ubuntu'},
+        {'groupname': 'lxd', 'username': 'ubuntu'},
+        {'groupname': 'netdev', 'username': 'ubuntu'},
+        {'groupname': 'plugdev', 'username': 'ubuntu'},
+        {'groupname': 'sudo', 'username': 'ubuntu'},
+        {'groupname': 'ubuntu', 'username': 'ubuntu'},
+        {'groupname': 'video', 'username': 'ubuntu'}
+    ],
     "root": [
         {"groupname":"root","username":"root"}
     ],
