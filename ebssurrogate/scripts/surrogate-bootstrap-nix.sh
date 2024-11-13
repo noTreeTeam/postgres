@@ -29,18 +29,9 @@ function waitfor_boot_finished {
 }
 
 function install_packages {
-	# Setup Ansible on host VM
-	apt-get update && sudo apt-get install software-properties-common -y
+	apt-get update && sudo apt-get install software-properties-common e2fsprogs -y
 	add-apt-repository --yes --update ppa:ansible/ansible && sudo apt-get install ansible -y
 	ansible-galaxy collection install community.general
-
-	# Update apt and install required packages
-	apt-get update
-	apt-get install -y \
-		gdisk \
-		e2fsprogs \
-		debootstrap \
-		nvme-cli
 }
 
 function execute_playbook {
@@ -96,7 +87,6 @@ function install_nix() {
 
 }
 
-
 function execute_stage2_playbook {
     sudo tee /etc/ansible/ansible.cfg <<EOF
 [defaults]
@@ -108,6 +98,43 @@ EOF
     ansible-playbook ./ansible/playbook.yml \
         --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false}' \
         --extra-vars "git_commit_sha=${GIT_SHA}"
+}
+
+function clean_system {
+    # Copy cleanup scripts
+    chmod +x /tmp/ansible-playbook/scripts/90-cleanup.sh
+    /tmp/ansible-playbook/scripts/90-cleanup.sh
+
+    # # Cleanup logs
+    rm -rf /var/log/*
+    # # https://github.com/fail2ban/fail2ban/issues/1593
+    touch /var/log/auth.log
+
+    touch /var/log/pgbouncer.log
+    chown pgbouncer:postgres /var/log/pgbouncer.log
+
+    # # Setup postgresql logs
+    mkdir -p /var/log/postgresql
+    chown postgres:postgres /var/log/postgresql
+    # # Setup wal-g logs
+    mkdir /var/log/wal-g
+    touch /var/log/wal-g/{backup-push.log,backup-fetch.log,wal-push.log,wal-fetch.log,pitr.log}
+
+    # #Creatre Sysstat directory for SAR
+    mkdir /var/log/sysstat
+
+    chown -R postgres:postgres /var/log/wal-g
+    chmod -R 0300 /var/log/wal-g
+
+    # # audit logs directory for apparmor
+    mkdir /var/log/audit
+
+    # # unwanted files
+    rm -rf /var/lib/apt/lists/*
+    rm -rf /root/.cache
+    rm -rf /root/.vpython*
+    rm -rf /root/go
+    rm -rf /mnt/usr/share/doc
 }
 
 install_nix
