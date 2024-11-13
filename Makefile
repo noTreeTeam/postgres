@@ -9,7 +9,8 @@ output-cloudimg/packer-cloudimg: ansible amazon-arm64-nix.pkr.hcl
 	packer build -var "git_sha=$(UPSTREAM_NIX_GIT_SHA)" amazon-arm64-nix.pkr.hcl
 
 disk/focal-raw.img: output-cloudimg/packer-cloudimg
-	qemu-img convert -O raw output-cloudimg/packer-cloudimg disk/focal-raw.img
+	mkdir -p disk
+	sudo qemu-img convert -O raw output-cloudimg/packer-cloudimg disk/focal-raw.img
 
 container-disk-image: disk/focal-raw.img
 	sudo nerdctl build . -t supabase-postgres-test:$(GIT_SHA) --namespace k8s.io -f ./Dockerfile-kubevirt
