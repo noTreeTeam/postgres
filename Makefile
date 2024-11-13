@@ -17,4 +17,7 @@ container-disk-image: disk/focal-raw.img
 host-disk: disk/focal-raw.img
 	sudo chown 107 -R disk
 
-.PHONY: container-disk-image host-disk init
+clean:
+	rm -rf output-cloudimg
+
+.PHONY: container-disk-image host-disk init clean
