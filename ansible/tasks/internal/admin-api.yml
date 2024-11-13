@@ -37,7 +37,7 @@
 
 - name: Download adminapi archive
   get_url:
-    url: "https://supabase-public-artifacts-bucket.s3.amazonaws.com/supabase-admin-api/v3-temp/supabase-admin-api_v{{ adminapi_release }}.tar.gz"
+    url: "https://supabase-public-artifacts-bucket.s3.us-east-1.amazonaws.com/supabase-admin-api/v3-temp/supabase-admin-api-v{{ adminapi_release }}.tar.gz"
     dest: "/tmp/adminapi.tar.gz"
     timeout: 90
 
