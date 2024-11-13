@@ -193,12 +193,7 @@ build {
 
   provisioner "shell" {
     environment_vars = [
-      # "ARGS=${var.ansible_arguments}",
-      # "DOCKER_USER=${var.docker_user}",
-      # "DOCKER_PASSWD=${var.docker_passwd}",
-      # "DOCKER_IMAGE=${var.docker_image}",
-      # "DOCKER_IMAGE_TAG=${var.docker_image_tag}",
-      # "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
+      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
       "GIT_SHA=${var.git_sha}"
     ]
     use_env_var_file = true
@@ -207,22 +202,4 @@ build {
     start_retry_timeout = "5m"
     skip_clean = true
   }
-
-  # provisioner "shell" {
-  #   environment_vars = ["DEBIAN_FRONTEND=noninteractive"]
-  #   scripts          = ["${path.root}/scripts/cloudimg/cleanup.sh"]
-  # }
-
-  # post-processor "shell-local" {
-  #   inline = [
-  #     "IMG_FMT=qcow2",
-  #     "SOURCE=cloudimg",
-  #     "ROOT_PARTITION=1",
-  #     "DETECT_BLS_BOOT=1",
-  #     "OUTPUT=${var.filename}",
-  #     "source ../scripts/fuse-nbd",
-  #     "source ../scripts/fuse-tar-root"
-  #   ]
-  #   inline_shebang = "/bin/bash -e"
-  # }
 }
