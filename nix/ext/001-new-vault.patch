@@ -965,10 +965,10 @@ index 0000000..e21cb68
 +}
 diff --git a/sql/supabase_vault--0.2.8--0.3.0.sql b/sql/supabase_vault--0.2.8--0.3.0.sql
 new file mode 100644
-index 0000000..50bd6e4
+index 0000000..cb92b0f
 --- /dev/null
 +++ b/sql/supabase_vault--0.2.8--0.3.0.sql
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,134 @@
 +CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
 +RETURNS bytea
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_encrypt_by_id'
@@ -994,6 +994,8 @@ index 0000000..50bd6e4
 +
 +  DROP FUNCTION IF EXISTS vault.secrets_encrypt_secret_secret;
 +
++  ALTER TABLE vault.secrets DROP CONSTRAINT IF EXISTS secrets_key_id_fkey;
++
 +  IF EXISTS (SELECT FROM vault.secrets) THEN
 +    UPDATE vault.decrypted_secrets s
 +    SET
@@ -1003,12 +1005,11 @@ index 0000000..50bd6e4
 +                 key_id := 0,
 +                 context := 'pgsodium'::bytea,
 +                 nonce := s.nonce
-+               ), 'base64');
++               ), 'base64'),
++      key_id = '00000000-0000-0000-0000-000000000000';
 +  END IF;
 +
 +  DROP VIEW IF EXISTS vault.decrypted_secrets;
-+
-+  ALTER TABLE vault.secrets DROP IF EXISTS key_id;
 +END
 +$$;
 +
@@ -1029,6 +1030,7 @@ index 0000000..50bd6e4
 +    ),
 +    'utf8'::name
 +  ) AS decrypted_secret,
++  s.key_id,
 +  s.nonce,
 +  s.created_at,
 +  s.updated_at
