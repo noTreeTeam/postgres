@@ -107,12 +107,11 @@
   when: stage2_nix
 
 - name: Create symbolic links from /var/lib/postgresql/.nix-profile/bin to /usr/lib/postgresql/bin
-  file:
-    src: "{{ item }}"
-    dest: "/usr/lib/postgresql/bin/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/bin/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/bin/ -maxdepth 1 -type f,l -exec sh -c 'ln -s "$0" "{{ item }}/$(basename $0)"' {} \;
+  loop:
+    - /usr/lib/postgresql/bin
+    - /usr/bin
   become: yes
   when: stage2_nix
 
@@ -129,23 +128,9 @@
   when: pg_config_stat.stat.exists and not pg_config_stat.stat.islnk and stage2_nix
   become: yes
 
-- name: Create symbolic links from /var/lib/postgresql/.nix-profile/bin to /usr/bin
-  file:
-    src: "{{ item }}"
-    dest: "/usr/bin/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/bin/*"
-  become: yes
-  when: stage2_nix
-
 - name: Ensure postgres user has ownership of symlink
-  file:
-    path: "/usr/bin/{{ item | basename }}"
-    owner: postgres
-    group: postgres
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/bin/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/bin/ -maxdepth 1 -type f,l -exec chown postgres:postgres "/usr/bin/$(basename {})" \;
   become: yes
   when: stage2_nix
 
