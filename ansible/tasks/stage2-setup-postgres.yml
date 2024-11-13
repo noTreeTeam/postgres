@@ -160,22 +160,14 @@
 # It was decided to leave pljava disabled at https://github.com/supabase/postgres/pull/690 therefore removing this task
 
 - name: Create symbolic links from /var/lib/postgresql/.nix-profile/share/postgresql to /usr/lib/postgresql/share/postgresql
-  file:
-    src: "{{ item }}"
-    dest: "/usr/lib/postgresql/share/postgresql/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/share/postgresql/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/share/postgresql/ -maxdepth 1 -type f,l -exec sh -c 'ln -s "$0" "/usr/lib/postgresql/share/postgresql/$(basename $0)"' {} \;
   become: yes
   when: stage2_nix
 
 - name: Create symbolic links from /var/lib/postgresql/.nix-profile/share/postgresql/extension to /usr/lib/postgresql/share/postgresql/extension
-  file:
-    src: "{{ item }}"
-    dest: "/usr/lib/postgresql/share/postgresql/extension/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/share/postgresql/extension/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/share/postgresql/extension/ -maxdepth 1 -type f,l -exec sh -c 'ln -s "$0" "/usr/lib/postgresql/share/postgresql/extension/$(basename $0)"' {} \;
   become: yes
   when: stage2_nix
 
@@ -195,22 +187,14 @@
   when: stage2_nix
 
 - name: Create symbolic links from /var/lib/postgresql/.nix-profile/share/postgresql/timezonesets to /usr/lib/postgresql/share/postgresql/timeszonesets
-  file:
-    src: "{{ item }}"
-    dest: "/usr/lib/postgresql/share/postgresql/timezonesets/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/share/postgresql/timezonesets/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/share/postgresql/timezonesets/ -maxdepth 1 -type f,l -exec sh -c 'ln -s "$0" "/usr/lib/postgresql/share/postgresql/timezonesets/$(basename $0)"' {} \;
   become: yes
   when: stage2_nix
 
 - name: Create symbolic links from /var/lib/postgresql/.nix-profile/share/postgresql/tsearch_data to /usr/lib/postgresql/share/postgresql/tsearch_data
-  file:
-    src: "{{ item }}"
-    dest: "/usr/lib/postgresql/share/postgresql/tsearch_data/{{ item | basename }}"
-    state: link
-  with_fileglob:
-    - "/var/lib/postgresql/.nix-profile/share/postgresql/tsearch_data/*"
+  shell: >-
+    find /var/lib/postgresql/.nix-profile/share/postgresql/tsearch_data/ -maxdepth 1 -type f,l -exec sh -c 'ln -s "$0" "/usr/lib/postgresql/share/postgresql/tsearch_data/$(basename $0)"' {} \;
   become: yes
   when: stage2_nix
 
