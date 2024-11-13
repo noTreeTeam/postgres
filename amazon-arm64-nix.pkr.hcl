@@ -193,7 +193,7 @@ build {
 
   provisioner "shell" {
     environment_vars = [
-      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}"
+      "POSTGRES_SUPABASE_VERSION=${var.postgres-version}",
       "GIT_SHA=${var.git_sha}"
     ]
     use_env_var_file = true
