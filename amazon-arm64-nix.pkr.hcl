@@ -130,7 +130,7 @@ source "qemu" "cloudimg" {
   boot_wait      = "2s"
   cpus           = 12
   disk_image     = true
-  disk_size      = "30G"
+  disk_size      = "15G"
   format         = "qcow2"
   # TODO (darora): disable backing image for qcow2
   headless       = true
