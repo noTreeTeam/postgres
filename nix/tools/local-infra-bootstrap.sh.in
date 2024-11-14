@@ -16,8 +16,8 @@ print_help() {
     echo "Usage: nix run .#local-infra-bootstrap -- [options]"
     echo
     echo "Options:"
-    echo "  -h, --help                         Show this help message"
-    echo "  -s, --setup                        Setup the local infrastructure for development"
+    echo "  -h, --help                        Show this help message"
+    echo "  -s, --setup                       Setup the local infrastructure for development NOTE: Requires --infra-repo-dir"
     echo "  --infra-repo-dir <path>           Full path to infrastructure repository directory"
     echo "  --aws-yubikey-setup               Install AWS CLI tools with YubiKey support"
     echo "  --aws-yubikey-setup-no-key        Install AWS CLI tools without YubiKey"
