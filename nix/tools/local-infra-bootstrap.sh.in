@@ -9,6 +9,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 INFRA_REPO_DIR=""
+SETUP_FLAG=false
+
 
 print_help() {
     echo "Usage: nix run .#local-infra-bootstrap -- [options]"
@@ -285,6 +287,7 @@ install_aws_tools() {
     echo -e "Please follow the AWS CLI MFA+YubiKey setup documentation for next steps."
 }
 
+# Parse arguments first
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -292,8 +295,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -s|--setup)
-            check_brew
-            install_prerequisites
+            SETUP_FLAG=true
             shift
             ;;
         --infra-repo-dir)
@@ -323,8 +325,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate setup requirements
+if [ "$SETUP_FLAG" = true ]; then
+    if [ -z "$INFRA_REPO_DIR" ]; then
+        echo -e "${RED}Error: --infra-repo-dir is required when using --setup${NC}"
+        print_help
+        exit 1
+    fi
+    check_brew
+    install_prerequisites
+fi
+
 # If no arguments provided, show help
-if [ $# -eq 0 ]; then
+if [ "$SETUP_FLAG" = false ] && [ -z "$INFRA_REPO_DIR" ]; then
     print_help
     exit 0
 fi
