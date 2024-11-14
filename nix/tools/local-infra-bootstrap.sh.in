@@ -8,12 +8,15 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
+INFRA_REPO_DIR=""
+
 print_help() {
     echo "Usage: nix run .#local-infra-bootstrap -- [options]"
     echo
     echo "Options:"
     echo "  -h, --help                         Show this help message"
     echo "  -s, --setup                        Setup the local infrastructure for development"
+    echo "  --infra-repo-dir <path>           Full path to infrastructure repository directory"
     echo "  --aws-yubikey-setup               Install AWS CLI tools with YubiKey support"
     echo "  --aws-yubikey-setup-no-key        Install AWS CLI tools without YubiKey"
     echo
@@ -22,7 +25,7 @@ print_help() {
     echo "  This tool wraps homebrew and other tools to install the necessary dependencies."
     echo
     echo "Examples:"
-    echo "  nix run .#local-infra-bootstrap"
+    echo "  nix run .#local-infra-bootstrap -- --setup --infra-repo-dir /path/to/infrastructure"
     echo "  nix run .#local-infra-bootstrap -- --aws-yubikey-setup"
 }
 
@@ -52,21 +55,22 @@ check_brew() {
 configure_ngrok() {
     echo -e "\n${BOLD}Configuring ngrok settings...${NC}"
     
-    # Check if .local.env exists
-    local env_file="infrastructure/.local.env"
-    mkdir -p "$(dirname "$env_file")"
+    if [ -z "$INFRA_REPO_DIR" ]; then
+        echo -e "${RED}Error: Infrastructure repository directory not specified${NC}"
+        return 1
+    fi
     
-    # Prompt for ngrok details
+    local env_file="$INFRA_REPO_DIR/.local.env"
+    mkdir -p "$INFRA_REPO_DIR"
+    
     read -p "Enter your ngrok static domain (example.ngrok-free.app): " static_domain
     read -p "Enter your ngrok auth token: " auth_token
     
-    # Validate inputs
     if [[ -z "$static_domain" || -z "$auth_token" ]]; then
         echo -e "${RED}Error: Both static domain and auth token are required${NC}"
         return 1
     fi
     
-    # Create or update .local.env
     cat > "$env_file" << EOF
 EXTERNAL_SUPABASE_API_URL=http://${static_domain}
 NGROK_AUTHTOKEN=${auth_token}
@@ -281,7 +285,6 @@ install_aws_tools() {
     echo -e "Please follow the AWS CLI MFA+YubiKey setup documentation for next steps."
 }
 
-# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -292,6 +295,15 @@ while [[ $# -gt 0 ]]; do
             check_brew
             install_prerequisites
             shift
+            ;;
+        --infra-repo-dir)
+            if [ -n "$2" ]; then
+                INFRA_REPO_DIR="$2"
+                shift 2
+            else
+                echo "Error: --infra-repo-dir requires a path argument"
+                exit 1
+            fi
             ;;
         --aws-yubikey-setup)
             check_brew
