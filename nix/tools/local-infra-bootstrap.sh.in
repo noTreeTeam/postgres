@@ -49,6 +49,33 @@ check_brew() {
     fi
 }
 
+configure_ngrok() {
+    echo -e "\n${BOLD}Configuring ngrok settings...${NC}"
+    
+    # Check if .local.env exists
+    local env_file="infrastructure/.local.env"
+    mkdir -p "$(dirname "$env_file")"
+    
+    # Prompt for ngrok details
+    read -p "Enter your ngrok static domain (example.ngrok-free.app): " static_domain
+    read -p "Enter your ngrok auth token: " auth_token
+    
+    # Validate inputs
+    if [[ -z "$static_domain" || -z "$auth_token" ]]; then
+        echo -e "${RED}Error: Both static domain and auth token are required${NC}"
+        return 1
+    fi
+    
+    # Create or update .local.env
+    cat > "$env_file" << EOF
+EXTERNAL_SUPABASE_API_URL=http://${static_domain}
+NGROK_AUTHTOKEN=${auth_token}
+NGROK_STATIC_DOMAIN=${static_domain}
+EOF
+    
+    echo -e "${GREEN}✅ ngrok configuration saved to ${env_file}${NC}"
+}
+
 check_app() {
     local brew_name=$1
     local check_command=$2
@@ -170,8 +197,8 @@ install_prerequisites() {
     echo
 
     # Define apps and their check commands
-    local apps=("awscli" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp")
-    local commands=("aws" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp")
+    local apps=("awscli" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp" "ngrok")
+    local commands=("aws" "dbmate" "orbstack" "corepack" "aws-vault" "tmux" "tmuxp" "ngrok")
     local pnpm_checked=false
     
     # Check each app and prompt for installation if missing
@@ -214,7 +241,9 @@ install_prerequisites() {
         fi
         echo
     done
-
+    if command -v ngrok >/dev/null 2>&1; then
+        configure_ngrok
+    fi
     echo -e "\n${BOLD}Prerequisites Check Complete ${NC}"
 }
 
