@@ -965,10 +965,10 @@ index 0000000..e21cb68
 +}
 diff --git a/sql/supabase_vault--0.2.8--0.3.0.sql b/sql/supabase_vault--0.2.8--0.3.0.sql
 new file mode 100644
-index 0000000..cb92b0f
+index 0000000..f120f5f
 --- /dev/null
 +++ b/sql/supabase_vault--0.2.8--0.3.0.sql
-@@ -0,0 +1,134 @@
+@@ -0,0 +1,135 @@
 +CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
 +RETURNS bytea
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_encrypt_by_id'
@@ -984,37 +984,38 @@ index 0000000..cb92b0f
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_noncegen'
 +LANGUAGE c IMMUTABLE;
 +
++SECURITY LABEL ON COLUMN vault.secrets.secret IS NULL;
++
++DROP TRIGGER IF EXISTS secrets_encrypt_secret_trigger_secret ON vault.secrets;
++DROP FUNCTION IF EXISTS vault.secrets_encrypt_secret_secret;
++
++ALTER TABLE vault.secrets DROP CONSTRAINT IF EXISTS secrets_key_id_fkey;
++ALTER TABLE vault.secrets ALTER key_id DROP DEFAULT;
++ALTER TABLE vault.secrets ALTER nonce SET DEFAULT vault._crypto_aead_det_noncegen();
++
 +DO $$
 +BEGIN
 +  SET search_path = '';
 +
-+  SECURITY LABEL ON COLUMN vault.secrets.secret IS NULL;
-+
-+  DROP TRIGGER IF EXISTS secrets_encrypt_secret_trigger_secret ON vault.secrets;
-+
-+  DROP FUNCTION IF EXISTS vault.secrets_encrypt_secret_secret;
-+
-+  ALTER TABLE vault.secrets DROP CONSTRAINT IF EXISTS secrets_key_id_fkey;
-+
 +  IF EXISTS (SELECT FROM vault.secrets) THEN
 +    UPDATE vault.decrypted_secrets s
 +    SET
-+      secret = encode(vault._crypto_aead_det_encrypt(
-+                 message := convert_to(decrypted_secret, 'utf8'),
-+                 additional := convert_to(s.id || s.description || (s.created_at at time zone 'utc') || (s.updated_at at time zone 'utc'), 'utf8'),
-+                 key_id := 0,
-+                 context := 'pgsodium'::bytea,
-+                 nonce := s.nonce
-+               ), 'base64'),
-+      key_id = '00000000-0000-0000-0000-000000000000';
++      secret = encode(
++        vault._crypto_aead_det_encrypt(
++          message := convert_to(decrypted_secret, 'utf8'),
++          additional := convert_to(s.id || s.description || (s.created_at at time zone 'utc') || (s.updated_at at time zone 'utc'), 'utf8'),
++          key_id := 0,
++          context := 'pgsodium'::bytea,
++          nonce := s.nonce
++        ),
++        'base64'
++      ),
++      key_id = NULL;
 +  END IF;
-+
-+  DROP VIEW IF EXISTS vault.decrypted_secrets;
 +END
 +$$;
 +
-+ALTER TABLE vault.secrets ALTER nonce SET DEFAULT vault._crypto_aead_det_noncegen();
-+
++DROP VIEW IF EXISTS vault.decrypted_secrets;
 +CREATE VIEW vault.decrypted_secrets AS
 +SELECT s.id,
 +  s.name,
@@ -1103,6 +1104,18 @@ index 0000000..cb92b0f
 +  WHERE s.id = secret_id;
 +END
 +$$;
+diff --git a/sql/supabase_vault--0.2.8.sql b/sql/supabase_vault--0.2.8.sql
+index ee40004..8973fe0 100644
+--- a/sql/supabase_vault--0.2.8.sql
++++ b/sql/supabase_vault--0.2.8.sql
+@@ -8,7 +8,6 @@ CREATE TABLE vault.secrets (
+   created_at  timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   updated_at  timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+ );
+-ALTER TABLE vault.secrets OWNER TO session_user;
+ 
+ COMMENT ON TABLE vault.secrets IS 'Table with encrypted `secret` column for storing sensitive information on disk.';
+ 
 diff --git a/src/crypto_aead_det_xchacha20.c b/src/crypto_aead_det_xchacha20.c
 new file mode 100644
 index 0000000..8b7df0e
