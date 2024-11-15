@@ -12,7 +12,7 @@ index 80209a1..0000000
 -.cache
 -test*
 diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
-index 77209b9..64cf218 100644
+index 77209b9..2a88809 100644
 --- a/.github/workflows/test.yml
 +++ b/.github/workflows/test.yml
 @@ -1,12 +1,24 @@
@@ -31,7 +31,7 @@ index 77209b9..64cf218 100644
      runs-on: ubuntu-latest
 +    strategy:
 +      matrix:
-+        pg-version: ['13', '14', '15', '16', '17']
++        pg-version: ['13', '14', '15', '16']
 +
      steps:
 -      - uses: actions/checkout@v2
@@ -923,7 +923,7 @@ index 4ecd1de..0000000
 -docker exec -it $DB_HOST psql -U "$SU" $@
 diff --git a/shell.nix b/shell.nix
 new file mode 100644
-index 0000000..e21cb68
+index 0000000..758d40d
 --- /dev/null
 +++ b/shell.nix
 @@ -0,0 +1,36 @@
@@ -947,7 +947,7 @@ index 0000000..e21cb68
 +        postgresql_14
 +        postgresql_15
 +        postgresql_16
-+        ourPg.postgresql_17
++        # ourPg.postgresql_17
 +      ];
 +      pgWithExt = { pg }: pg.withPackages (p: [
 +        (callPackage ./nix/pgsodium.nix { postgresql = pg; })
@@ -965,7 +965,7 @@ index 0000000..e21cb68
 +}
 diff --git a/sql/supabase_vault--0.2.8--0.3.0.sql b/sql/supabase_vault--0.2.8--0.3.0.sql
 new file mode 100644
-index 0000000..f120f5f
+index 0000000..df6565a
 --- /dev/null
 +++ b/sql/supabase_vault--0.2.8--0.3.0.sql
 @@ -0,0 +1,135 @@
@@ -1003,7 +1003,7 @@ index 0000000..f120f5f
 +      secret = encode(
 +        vault._crypto_aead_det_encrypt(
 +          message := convert_to(decrypted_secret, 'utf8'),
-+          additional := convert_to(s.id || s.description || (s.created_at at time zone 'utc') || (s.updated_at at time zone 'utc'), 'utf8'),
++          additional := convert_to(s.id::text, 'utf8'),
 +          key_id := 0,
 +          context := 'pgsodium'::bytea,
 +          nonce := s.nonce
@@ -1024,7 +1024,7 @@ index 0000000..f120f5f
 +  convert_from(
 +    vault._crypto_aead_det_decrypt(
 +      message := decode(s.secret, 'base64'::text),
-+      additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
++      additional := convert_to(s.id::text, 'utf8'),
 +      key_id := 0,
 +      context := 'pgsodium'::bytea,
 +      nonce := s.nonce
@@ -1063,7 +1063,7 @@ index 0000000..f120f5f
 +  UPDATE vault.secrets s
 +  SET secret = encode(vault._crypto_aead_det_encrypt(
 +    message := convert_to(rec.secret, 'utf8'),
-+    additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
++    additional := convert_to(s.id::text, 'utf8'),
 +    key_id := 0,
 +    context := 'pgsodium'::bytea,
 +    nonce := rec.nonce
@@ -1093,7 +1093,7 @@ index 0000000..f120f5f
 +    secret = CASE WHEN new_secret IS NULL THEN s.secret
 +                  ELSE encode(vault._crypto_aead_det_encrypt(
 +                    message := convert_to(new_secret, 'utf8'),
-+                    additional := convert_to(s.id || coalesce(new_description, s.description) || (s.created_at at time zone 'utc') || (now() at time zone 'utc'), 'utf8'),
++                    additional := convert_to(s.id::text, 'utf8'),
 +                    key_id := 0,
 +                    context := 'pgsodium'::bytea,
 +                    nonce := s.nonce
@@ -1118,7 +1118,7 @@ index ee40004..8973fe0 100644
  
 diff --git a/sql/supabase_vault--0.3.0.sql b/sql/supabase_vault--0.3.0.sql
 new file mode 100644
-index 0000000..125168f
+index 0000000..af6abe2
 --- /dev/null
 +++ b/sql/supabase_vault--0.3.0.sql
 @@ -0,0 +1,123 @@
@@ -1161,7 +1161,7 @@ index 0000000..125168f
 +  convert_from(
 +    vault._crypto_aead_det_decrypt(
 +      message := decode(s.secret, 'base64'::text),
-+      additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
++      additional := convert_to(s.id::text, 'utf8'),
 +      key_id := 0,
 +      context := 'pgsodium'::bytea,
 +      nonce := s.nonce
@@ -1202,7 +1202,7 @@ index 0000000..125168f
 +  UPDATE vault.secrets s
 +  SET secret = encode(vault._crypto_aead_det_encrypt(
 +    message := convert_to(rec.secret, 'utf8'),
-+    additional := convert_to(s.id || s.description || s.created_at at time zone 'utc' || s.updated_at at time zone 'utc', 'utf8'),
++    additional := convert_to(s.id::text, 'utf8'),
 +    key_id := 0,
 +    context := 'pgsodium'::bytea,
 +    nonce := rec.nonce
@@ -1232,7 +1232,7 @@ index 0000000..125168f
 +    secret = CASE WHEN new_secret IS NULL THEN s.secret
 +                  ELSE encode(vault._crypto_aead_det_encrypt(
 +                    message := convert_to(new_secret, 'utf8'),
-+                    additional := convert_to(s.id || coalesce(new_description, s.description) || (s.created_at at time zone 'utc') || (now() at time zone 'utc'), 'utf8'),
++                    additional := convert_to(s.id::text, 'utf8'),
 +                    key_id := 0,
 +                    context := 'pgsodium'::bytea,
 +                    nonce := s.nonce
