@@ -139,13 +139,13 @@ index 8c33ac1..e9f0e08 100644
 +OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 +OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 diff --git a/Makefile b/Makefile
-index 7f66766..af0ef00 100644
+index 7f66766..d78d401 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,5 +1,25 @@
 +PG_CFLAGS = -std=c99 -Werror -Wno-declaration-after-statement
  EXTENSION = supabase_vault
-+EXTVERSION = 0.3.0
++EXTVERSION = 0.3.1
 +
  DATA = $(wildcard sql/*--*.sql)
 +
@@ -1116,6 +1116,13 @@ index ee40004..8973fe0 100644
  
  COMMENT ON TABLE vault.secrets IS 'Table with encrypted `secret` column for storing sensitive information on disk.';
  
+diff --git a/sql/supabase_vault--0.3.0--0.3.1.sql b/sql/supabase_vault--0.3.0--0.3.1.sql
+new file mode 100644
+index 0000000..ee25f24
+--- /dev/null
++++ b/sql/supabase_vault--0.3.0--0.3.1.sql
+@@ -0,0 +1 @@
++-- no SQL changes in 0.3.1
 diff --git a/sql/supabase_vault--0.3.0.sql b/sql/supabase_vault--0.3.0.sql
 new file mode 100644
 index 0000000..af6abe2
@@ -1434,7 +1441,7 @@ index 0000000..91eca9a
 +#endif
 diff --git a/src/pgsodium.c b/src/pgsodium.c
 new file mode 100644
-index 0000000..d337fff
+index 0000000..563c55f
 --- /dev/null
 +++ b/src/pgsodium.c
 @@ -0,0 +1,144 @@
@@ -1552,7 +1559,7 @@ index 0000000..d337fff
 +	{
 +		nonce = NULL;
 +	}
-+	ERRORIF (VARSIZE_ANY_EXHDR (ciphertext) <=
++	ERRORIF (VARSIZE_ANY_EXHDR (ciphertext) <
 +		crypto_aead_det_xchacha20_ABYTES, "%s: invalid message");
 +	result_len =
 +		VARSIZE_ANY_EXHDR (ciphertext) - crypto_aead_det_xchacha20_ABYTES;
@@ -1992,22 +1999,20 @@ index e6221c2..0000000
 -select * from finish();
 diff --git a/test/expected/test.out b/test/expected/test.out
 new file mode 100644
-index 0000000..28abe9b
+index 0000000..1d69ec5
 --- /dev/null
 +++ b/test/expected/test.out
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,110 @@
 +select no_plan();
 + no_plan 
 +---------
 +(0 rows)
 +
 +do $$
-+select vault.create_secret (
-+	's3kr3t_k3y', 'a_name', 'this is the foo secret key');
++begin
++  perform vault.create_secret('s3kr3t_k3y', 'a_name', 'this is the foo secret key');
++end
 +$$;
-+ERROR:  syntax error at or near "select"
-+LINE 2: select vault.create_secret (
-+        ^
 +SELECT results_eq(
 +    $$
 +    SELECT decrypted_secret = 's3kr3t_k3y', description = 'this is the foo secret key'
@@ -2015,13 +2020,9 @@ index 0000000..28abe9b
 +    $$,
 +    $$VALUES (true, true)$$,
 +    'can select from masking view with custom key');
-+                           results_eq                            
-+-----------------------------------------------------------------
-+ not ok 1 - can select from masking view with custom key        +
-+ # Failed test 1: "can select from masking view with custom key"+
-+ #     Results differ beginning at row 1:                       +
-+ #         have: NULL                                           +
-+ #         want: (t,t)
++                     results_eq                      
++-----------------------------------------------------
++ ok 1 - can select from masking view with custom key
 +(1 row)
 +
 +SELECT lives_ok(
@@ -2040,11 +2041,10 @@ index 0000000..28abe9b
 +TRUNCATE vault.secrets;
 +set role bob;
 +do $$
-+select vault.create_secret ('foo', 'bar', 'baz');
++begin
++  perform vault.create_secret ('foo', 'bar', 'baz');
++end
 +$$;
-+ERROR:  syntax error at or near "select"
-+LINE 2: select vault.create_secret ('foo', 'bar', 'baz');
-+        ^
 +select results_eq(
 +	$test$
 +    SELECT (decrypted_secret COLLATE "default"), name, description FROM vault.decrypted_secrets
@@ -2052,13 +2052,9 @@ index 0000000..28abe9b
 +    $test$,
 +    $results$values ('foo', 'bar', 'baz')$results$,
 +     'bob can query a secret');
-+                results_eq                 
-+-------------------------------------------
-+ not ok 3 - bob can query a secret        +
-+ # Failed test 3: "bob can query a secret"+
-+ #     Results differ beginning at row 1: +
-+ #         have: NULL                     +
-+ #         want: (foo,bar,baz)
++          results_eq           
++-------------------------------
++ ok 3 - bob can query a secret
 +(1 row)
 +
 +select lives_ok(
@@ -2082,21 +2078,40 @@ index 0000000..28abe9b
 +    $test$,
 +    $results$values ('fooz', 'barz', 'bazz')$results$,
 +     'bob can query an updated secret');
-+                     results_eq                     
-+----------------------------------------------------
-+ not ok 5 - bob can query an updated secret        +
-+ # Failed test 5: "bob can query an updated secret"+
-+ #     Results differ beginning at row 1:          +
-+ #         have: NULL                              +
-+ #         want: (fooz,barz,bazz)
++               results_eq               
++----------------------------------------
++ ok 5 - bob can query an updated secret
++(1 row)
++
++truncate vault.secrets;
++reset role;
++do $$
++begin
++  perform vault.create_secret(
++    new_secret := '',
++    new_name := 'empty_secret'
++  );
++end
++$$;
++select results_eq(
++  $test$
++    select decrypted_secret collate "default"
++    from vault.decrypted_secrets
++    where name = 'empty_secret'
++  $test$,
++  $results$values ('')$results$,
++  'secret can be an empty string'
++);
++              results_eq              
++--------------------------------------
++ ok 6 - secret can be an empty string
 +(1 row)
 +
 +select * from finish();
-+                finish                
-+--------------------------------------
-+ 1..5
-+ # Looks like you failed 3 tests of 5
-+(2 rows)
++ finish 
++--------
++ 1..6
++(1 row)
 +
 diff --git a/test/fixtures.sql b/test/fixtures.sql
 new file mode 100644
@@ -2121,15 +2136,16 @@ index 0000000..b323d22
 +GRANT pgsodium_keyiduser TO bob;
 diff --git a/test/sql/test.sql b/test/sql/test.sql
 new file mode 100644
-index 0000000..f6b6e92
+index 0000000..69dbccd
 --- /dev/null
 +++ b/test/sql/test.sql
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,84 @@
 +select no_plan();
 +
 +do $$
-+select vault.create_secret (
-+	's3kr3t_k3y', 'a_name', 'this is the foo secret key');
++begin
++  perform vault.create_secret('s3kr3t_k3y', 'a_name', 'this is the foo secret key');
++end
 +$$;
 +
 +SELECT results_eq(
@@ -2154,7 +2170,9 @@ index 0000000..f6b6e92
 +set role bob;
 +
 +do $$
-+select vault.create_secret ('foo', 'bar', 'baz');
++begin
++  perform vault.create_secret ('foo', 'bar', 'baz');
++end
 +$$;
 +
 +select results_eq(
@@ -2182,5 +2200,27 @@ index 0000000..f6b6e92
 +    $test$,
 +    $results$values ('fooz', 'barz', 'bazz')$results$,
 +     'bob can query an updated secret');
++
++truncate vault.secrets;
++reset role;
++
++do $$
++begin
++  perform vault.create_secret(
++    new_secret := '',
++    new_name := 'empty_secret'
++  );
++end
++$$;
++
++select results_eq(
++  $test$
++    select decrypted_secret collate "default"
++    from vault.decrypted_secrets
++    where name = 'empty_secret'
++  $test$,
++  $results$values ('')$results$,
++  'secret can be an empty string'
++);
 +
 +select * from finish();
