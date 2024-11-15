@@ -17,6 +17,7 @@
         system.x86_64-linux
         system.aarch64-linux
         system.aarch64-darwin
+        system.x86_64-darwin
       ];
     in
     flake-utils.lib.eachSystem ourSystems (system:
@@ -198,7 +199,6 @@
               then orioledbExtensions
               else ourExtensions;
           in map (path: pkgs.callPackage path { inherit postgresql; }) extensionsToUse;
-
 
         # Create an attrset that contains all the extensions included in a server.
         makeOurPostgresPkgsSet = version:
