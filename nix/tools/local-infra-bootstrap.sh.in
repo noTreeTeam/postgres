@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 
 [ ! -z "$DEBUG" ] && set -x
 
@@ -11,25 +12,28 @@ BOLD='\033[1m'
 INFRA_REPO_DIR=""
 SUPABASE_REPO=""
 SETUP_FLAG=false
+NODE_VERSION="20"  # Default Node.js version
 
 print_help() {
     echo "Usage: nix run .#local-infra-bootstrap -- [options]"
     echo
     echo "Options:"
     echo "  -h, --help                        Show this help message"
-    echo "  -s, --setup                       Setup the local infrastructure for development NOTE: Requires --infra-repo-dir and --supabase-repo"
-    echo "  --infra-repo-dir <path>           Full path to infrastructure repository directory"
+    echo "  -s, --setup                       Setup the local infrastructure for development NOTE: Requires --infrastructure-repo and --supabase-repo"
+    echo "  --infrastructure-repo <path>           Full path to infrastructure repository directory"
     echo "  --supabase-repo <path>            Full path to Supabase repository directory"
     echo "  --aws-yubikey-setup               Install AWS CLI tools with YubiKey support"
     echo "  --aws-yubikey-setup-no-key        Install AWS CLI tools without YubiKey"
+    echo "  --node-version <version>          Specify Node.js version to install/use (default: $NODE_VERSION)"
     echo
     echo "Description:"
     echo "  Bootstrap the local infrastructure for development."
     echo "  This tool wraps homebrew and other tools to install the necessary dependencies."
     echo
     echo "Examples:"
-    echo "  nix run .#local-infra-bootstrap -- --setup --infra-repo-dir /path/to/infrastructure --supabase-repo /path/to/supabase"
+    echo "  nix run .#local-infra-bootstrap -- --setup --infrastructure-repo /path/to/infrastructure --supabase-repo /path/to/supabase"
     echo "  nix run .#local-infra-bootstrap -- --aws-yubikey-setup"
+    echo "  nix run .#local-infra-bootstrap -- --setup --node-version 18"
 }
 
 check_brew() {
@@ -52,6 +56,38 @@ check_brew() {
         echo 'echo '\''eval "$(/opt/homebrew/bin/brew shellenv)"'\'' >> ~/.zprofile'
         echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
         exit 1
+    fi
+}
+
+check_and_setup_node() {
+    echo -e "\n${BOLD}Checking Node.js installation...${NC}"
+    
+    # Check if the specified node version is installed
+    if ! brew list "node@$NODE_VERSION" &>/dev/null; then
+        echo "Node.js $NODE_VERSION is not installed. Installing..."
+        brew install "node@$NODE_VERSION"
+    fi
+    
+    # Unlink any existing node version
+    brew unlink node@* 2>/dev/null || true
+    
+    # Link the desired version with overwrite
+    echo "Linking Node.js $NODE_VERSION..."
+    brew link --overwrite --force "node@$NODE_VERSION"
+    
+    # Verify installation
+    if ! command -v node &>/dev/null; then
+        echo -e "${RED}❌ Failed to install Node.js $NODE_VERSION${NC}"
+        return 1
+    fi
+    
+    current_version=$(node -v | cut -d 'v' -f2 | cut -d '.' -f1)
+    if [ "$current_version" = "$NODE_VERSION" ]; then
+        echo -e "${GREEN}✅ Node.js $NODE_VERSION is now active${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Failed to switch to Node.js $NODE_VERSION${NC}"
+        return 1
     fi
 }
 
@@ -179,6 +215,8 @@ enable_corepack_pnpm() {
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
                 echo "Running corepack enable pnpm..."
+                # Remove existing symlinks if present
+                sudo rm -f /opt/homebrew/bin/pnpm /opt/homebrew/bin/pnpx
                 if NODE_OPTIONS="" corepack enable pnpm; then
                     echo -e "${GREEN}✅ Successfully enabled PNPM through Corepack${NC}"
                     pnpm_checked=true
@@ -290,7 +328,6 @@ install_aws_tools() {
     echo -e "Please follow the AWS CLI MFA+YubiKey setup documentation for next steps."
 }
 
-# Parse arguments first
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -301,12 +338,21 @@ while [[ $# -gt 0 ]]; do
             SETUP_FLAG=true
             shift
             ;;
-        --infra-repo-dir)
+        --node-version)
+            if [ -n "$2" ]; then
+                NODE_VERSION="$2"
+                shift 2
+            else
+                echo "Error: --node-version requires a version number"
+                exit 1
+            fi
+            ;;
+        --infrastructure-repo)
             if [ -n "$2" ]; then
                 INFRA_REPO_DIR="$2"
                 shift 2
             else
-                echo "Error: --infra-repo-dir requires a path argument"
+                echo "Error: --infrastructure-repo requires a path argument"
                 exit 1
             fi
             ;;
@@ -340,7 +386,7 @@ done
 # Validate setup requirements
 if [ "$SETUP_FLAG" = true ]; then
     if [ -z "$INFRA_REPO_DIR" ]; then
-        echo -e "${RED}Error: --infra-repo-dir is required when using --setup${NC}"
+        echo -e "${RED}Error: --infrastructure-repo is required when using --setup${NC}"
         print_help
         exit 1
     fi
@@ -350,6 +396,7 @@ if [ "$SETUP_FLAG" = true ]; then
         exit 1
     fi
     check_brew
+    check_and_setup_node
     install_prerequisites
 fi
 
