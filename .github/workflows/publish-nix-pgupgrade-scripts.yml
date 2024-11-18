@@ -7,6 +7,13 @@ on:
       - release/*
     paths:
       - '.github/workflows/publish-nix-pgupgrade-scripts.yml'
+        - sam/publish-gh-actions
+  #TODO PR remove prior to merge
+  pull_request:
+    branches:
+      - sam/publish-gh-actions
+    paths:
+      - '.github/workflows/publish-nix-pgupgrade-scripts.yml'
   workflow_dispatch:
     inputs:
       postgresVersion:
@@ -49,7 +56,7 @@ jobs:
       - name: Grab release version
         id: process_release_version
         run: |
-          VERSION=$(sudo nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
+          VERSION=$(nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
           VERSION=$(echo $PG_VERSION | tr -d '"')  # Remove any surrounding quotes
           if [[ "${{ inputs.postgresVersion }}" != "" ]]; then
             VERSION=${{ inputs.postgresVersion }}
@@ -95,11 +102,13 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
-
+      
+      - uses: DeterminateSystems/nix-installer-action@main
+  
       - name: Grab release version
         id: process_release_version
         run: |
-          VERSION=$(sudo nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
+          VERSION=$(nix run nixpkgs#yq -- '.postgres_release["postgres'${{ matrix.postgres_version }}'"]' ansible/vars.yml)
           VERSION=$(echo $PG_VERSION | tr -d '"')  # Remove any surrounding quotes
           if [[ "${{ inputs.postgresVersion }}" != "" ]]; then
             VERSION=${{ inputs.postgresVersion }}
