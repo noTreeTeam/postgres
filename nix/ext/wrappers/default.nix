@@ -53,6 +53,9 @@ buildPgrxExtension_0_12_6 rec {
   cargoLock = {
     lockFile = "${src}/Cargo.lock";
     allowBuiltinFetchGit = false;
+    outputHashes = {
+      "clickhouse-rs-1.1.0-alpha.1" = "sha256-G+v4lNP5eK2U45D1fL90Dq24pUSlpIysNCxuZ17eac0=";
+    };
   };
   
   buildAndTestSubdir = "wrappers";
@@ -74,7 +77,6 @@ buildPgrxExtension_0_12_6 rec {
   doCheck = false;
 
   preBuild = ''
-    ${cargo}/bin/cargo vendor
     echo "Processing git tags..."
     echo '${builtins.concatStringsSep "," previousVersions}' | sed 's/,/\n/g' > git_tags.txt
   '';
