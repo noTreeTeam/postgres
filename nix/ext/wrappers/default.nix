@@ -52,7 +52,7 @@ buildPgrxExtension_0_12_6 rec {
   
   cargoLock = {
     lockFile = "${src}/Cargo.lock";
-    allowBuiltinFetchGit = true;
+    allowBuiltinFetchGit = false;
   };
   
   buildAndTestSubdir = "wrappers";
@@ -74,6 +74,7 @@ buildPgrxExtension_0_12_6 rec {
   doCheck = false;
 
   preBuild = ''
+    ${cargo}/bin/cargo vendor
     echo "Processing git tags..."
     echo '${builtins.concatStringsSep "," previousVersions}' | sed 's/,/\n/g' > git_tags.txt
   '';
