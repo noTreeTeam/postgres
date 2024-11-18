@@ -29,8 +29,8 @@ buildPgrxExtension_0_12_6 rec {
     hash = "sha256-CkoNMoh40zbQL4V49ZNYgv3JjoNWjODtTpHn+L8DdZA=";
   };
  
-  nativeBuildInputs = [ pkg-config cargo ];
-  buildInputs = [ openssl postgresql git ] ++ lib.optionals (stdenv.isDarwin) [ 
+  nativeBuildInputs = [ pkg-config cargo git ];
+  buildInputs = [ openssl postgresql ] ++ lib.optionals (stdenv.isDarwin) [ 
     darwin.apple_sdk.frameworks.CoreFoundation 
     darwin.apple_sdk.frameworks.Security 
     darwin.apple_sdk.frameworks.SystemConfiguration 
