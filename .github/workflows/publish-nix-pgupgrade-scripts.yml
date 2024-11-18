@@ -86,7 +86,7 @@ jobs:
   publish-prod:
     needs: prepare
     runs-on: ubuntu-latest
-    if: github.ref_name == 'develop' || contains( github.ref, 'release' )
+    if: github.ref_name == 'sam/publish-gh-actions' || contains( github.ref, 'release' )
 
     strategy:
       matrix:
