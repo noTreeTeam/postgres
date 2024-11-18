@@ -5,12 +5,6 @@ on:
     branches:
       - develop
       - release/*
-    paths:
-      - '.github/workflows/publish-nix-pgupgrade-scripts.yml'
-        - sam/publish-gh-actions
-  #TODO PR remove prior to merge
-  pull_request:
-    branches:
       - sam/publish-gh-actions
     paths:
       - '.github/workflows/publish-nix-pgupgrade-scripts.yml'
