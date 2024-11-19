@@ -82,7 +82,7 @@ jobs:
           SLACK_COLOR: 'danger'
           SLACK_MESSAGE: 'Publishing pg_upgrade scripts failed'
           SLACK_FOOTER: ''
-  #TODO Remove this comment
+  #TODO Remove this comment 
   publish-prod:
     needs: prepare
     runs-on: ubuntu-latest
