@@ -270,6 +270,31 @@
           #psql_orioledb_16 = makeOrioleDbPostgres "16_23" postgresql_orioledb_16;
           sfcgal = sfcgal;
           pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
+
+
+          postgresql_15_debug = if pkgs.stdenv.isLinux then pkgs.postgresql_15.debug else null;
+          postgresql_15_src = pkgs.stdenv.mkDerivation {
+            pname = "postgresql-15-src";
+            version = pkgs.postgresql_15.version;
+
+            src = pkgs.postgresql_15.src;
+
+            nativeBuildInputs = [ pkgs.bzip2 ];
+
+            phases = [ "unpackPhase" "installPhase" ];
+
+            installPhase = ''
+              mkdir -p $out
+              cp -r . $out
+            '';
+
+            meta = with pkgs.lib; {
+              description = "PostgreSQL 15 source files";
+              homepage = "https://www.postgresql.org/";
+              license = licenses.postgresql;
+              platforms = platforms.all;
+            };
+          };
           # Start a version of the server.
           start-server =
             let
