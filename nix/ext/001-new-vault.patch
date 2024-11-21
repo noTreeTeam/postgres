@@ -12,7 +12,7 @@ index 80209a1..0000000
 -.cache
 -test*
 diff --git a/.github/workflows/test.yml b/.github/workflows/test.yml
-index 77209b9..2a88809 100644
+index 77209b9..64cf218 100644
 --- a/.github/workflows/test.yml
 +++ b/.github/workflows/test.yml
 @@ -1,12 +1,24 @@
@@ -31,7 +31,7 @@ index 77209b9..2a88809 100644
      runs-on: ubuntu-latest
 +    strategy:
 +      matrix:
-+        pg-version: ['13', '14', '15', '16']
++        pg-version: ['13', '14', '15', '16', '17']
 +
      steps:
 -      - uses: actions/checkout@v2
@@ -139,13 +139,13 @@ index 8c33ac1..e9f0e08 100644
 +OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 +OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 diff --git a/Makefile b/Makefile
-index 7f66766..d78d401 100644
+index 7f66766..af0ef00 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,5 +1,25 @@
 +PG_CFLAGS = -std=c99 -Werror -Wno-declaration-after-statement
  EXTENSION = supabase_vault
-+EXTVERSION = 0.3.1
++EXTVERSION = 0.3.0
 +
  DATA = $(wildcard sql/*--*.sql)
 +
@@ -307,7 +307,7 @@ index 0000000..575051e
 +(mkAttributes false) // (mkAttributes true)
 diff --git a/nix/postgresql/generic.nix b/nix/postgresql/generic.nix
 new file mode 100644
-index 0000000..ba730c4
+index 0000000..54bfdcd
 --- /dev/null
 +++ b/nix/postgresql/generic.nix
 @@ -0,0 +1,311 @@
@@ -509,7 +509,7 @@ index 0000000..ba730c4
 +        wrapProgram $out/bin/initdb --prefix PATH ":" ${glibc.bin}/bin
 +      '';
 +
-+    doCheck = !stdenv'.isDarwin;
++    doCheck = false;
 +    # autodetection doesn't seem to able to find this, but it's there.
 +    checkTarget = "check";
 +
@@ -923,7 +923,7 @@ index 4ecd1de..0000000
 -docker exec -it $DB_HOST psql -U "$SU" $@
 diff --git a/shell.nix b/shell.nix
 new file mode 100644
-index 0000000..758d40d
+index 0000000..e21cb68
 --- /dev/null
 +++ b/shell.nix
 @@ -0,0 +1,36 @@
@@ -947,7 +947,7 @@ index 0000000..758d40d
 +        postgresql_14
 +        postgresql_15
 +        postgresql_16
-+        # ourPg.postgresql_17
++        ourPg.postgresql_17
 +      ];
 +      pgWithExt = { pg }: pg.withPackages (p: [
 +        (callPackage ./nix/pgsodium.nix { postgresql = pg; })
@@ -965,10 +965,10 @@ index 0000000..758d40d
 +}
 diff --git a/sql/supabase_vault--0.2.8--0.3.0.sql b/sql/supabase_vault--0.2.8--0.3.0.sql
 new file mode 100644
-index 0000000..df6565a
+index 0000000..5e4837a
 --- /dev/null
 +++ b/sql/supabase_vault--0.2.8--0.3.0.sql
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,148 @@
 +CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
 +RETURNS bytea
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_encrypt_by_id'
@@ -983,6 +983,8 @@ index 0000000..df6565a
 +RETURNS bytea
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_noncegen'
 +LANGUAGE c IMMUTABLE;
++
++ALTER TABLE vault.secrets OWNER TO current_user;
 +
 +SECURITY LABEL ON COLUMN vault.secrets.secret IS NULL;
 +
@@ -1037,8 +1039,6 @@ index 0000000..df6565a
 +  s.updated_at
 +FROM vault.secrets s;
 +
-+GRANT ALL ON vault.decrypted_secrets TO pgsodium_keyiduser;
-+
 +CREATE OR REPLACE FUNCTION vault.create_secret(
 +  new_secret text,
 +  new_name text = NULL,
@@ -1047,6 +1047,7 @@ index 0000000..df6565a
 +  new_key_id uuid = NULL
 +)
 +RETURNS uuid
++SECURITY DEFINER
 +LANGUAGE plpgsql
 +SET search_path = ''
 +AS $$
@@ -1082,6 +1083,7 @@ index 0000000..df6565a
 +  new_key_id uuid = NULL
 +)
 +RETURNS void
++SECURITY DEFINER
 +LANGUAGE plpgsql
 +SET search_path = ''
 +AS $$
@@ -1104,31 +1106,23 @@ index 0000000..df6565a
 +  WHERE s.id = secret_id;
 +END
 +$$;
-diff --git a/sql/supabase_vault--0.2.8.sql b/sql/supabase_vault--0.2.8.sql
-index ee40004..8973fe0 100644
---- a/sql/supabase_vault--0.2.8.sql
-+++ b/sql/supabase_vault--0.2.8.sql
-@@ -8,7 +8,6 @@ CREATE TABLE vault.secrets (
-   created_at  timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-   updated_at  timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
- );
--ALTER TABLE vault.secrets OWNER TO session_user;
- 
- COMMENT ON TABLE vault.secrets IS 'Table with encrypted `secret` column for storing sensitive information on disk.';
- 
-diff --git a/sql/supabase_vault--0.3.0--0.3.1.sql b/sql/supabase_vault--0.3.0--0.3.1.sql
-new file mode 100644
-index 0000000..ee25f24
---- /dev/null
-+++ b/sql/supabase_vault--0.3.0--0.3.1.sql
-@@ -0,0 +1 @@
-+-- no SQL changes in 0.3.1
++
++REVOKE ALL ON SCHEMA vault FROM pgsodium_keyiduser;
++REVOKE ALL ON vault.decrypted_secrets, vault.secrets FROM pgsodium_keyiduser;
++
++REVOKE ALL ON FUNCTION
++  vault._crypto_aead_det_encrypt,
++  vault._crypto_aead_det_decrypt,
++  vault._crypto_aead_det_noncegen,
++  vault.create_secret,
++  vault.update_secret
++FROM PUBLIC;
 diff --git a/sql/supabase_vault--0.3.0.sql b/sql/supabase_vault--0.3.0.sql
 new file mode 100644
-index 0000000..af6abe2
+index 0000000..b0e5998
 --- /dev/null
 +++ b/sql/supabase_vault--0.3.0.sql
-@@ -0,0 +1,123 @@
+@@ -0,0 +1,129 @@
 +CREATE OR REPLACE FUNCTION vault._crypto_aead_det_encrypt(message bytea, additional bytea, key_id bigint, context bytea = 'pgsodium', nonce bytea = NULL)
 +RETURNS bytea
 +AS 'MODULE_PATHNAME', 'pgsodium_crypto_aead_det_encrypt_by_id'
@@ -1181,10 +1175,6 @@ index 0000000..af6abe2
 +  s.updated_at
 +FROM vault.secrets s;
 +
-+GRANT ALL ON SCHEMA vault TO pgsodium_keyiduser;
-+GRANT ALL ON TABLE vault.secrets TO pgsodium_keyiduser;
-+GRANT ALL ON vault.decrypted_secrets TO pgsodium_keyiduser;
-+
 +CREATE OR REPLACE FUNCTION vault.create_secret(
 +  new_secret text,
 +  new_name text = NULL,
@@ -1193,6 +1183,7 @@ index 0000000..af6abe2
 +  new_key_id uuid = NULL
 +)
 +RETURNS uuid
++SECURITY DEFINER
 +LANGUAGE plpgsql
 +SET search_path = ''
 +AS $$
@@ -1228,6 +1219,7 @@ index 0000000..af6abe2
 +  new_key_id uuid = NULL
 +)
 +RETURNS void
++SECURITY DEFINER
 +LANGUAGE plpgsql
 +SET search_path = ''
 +AS $$
@@ -1250,6 +1242,14 @@ index 0000000..af6abe2
 +  WHERE s.id = secret_id;
 +END
 +$$;
++
++REVOKE ALL ON FUNCTION
++  vault._crypto_aead_det_encrypt,
++  vault._crypto_aead_det_decrypt,
++  vault._crypto_aead_det_noncegen,
++  vault.create_secret,
++  vault.update_secret
++FROM PUBLIC;
 +
 +SELECT pg_catalog.pg_extension_config_dump('vault.secrets', '');
 diff --git a/src/crypto_aead_det_xchacha20.c b/src/crypto_aead_det_xchacha20.c
@@ -1441,7 +1441,7 @@ index 0000000..91eca9a
 +#endif
 diff --git a/src/pgsodium.c b/src/pgsodium.c
 new file mode 100644
-index 0000000..563c55f
+index 0000000..d337fff
 --- /dev/null
 +++ b/src/pgsodium.c
 @@ -0,0 +1,144 @@
@@ -1559,7 +1559,7 @@ index 0000000..563c55f
 +	{
 +		nonce = NULL;
 +	}
-+	ERRORIF (VARSIZE_ANY_EXHDR (ciphertext) <
++	ERRORIF (VARSIZE_ANY_EXHDR (ciphertext) <=
 +		crypto_aead_det_xchacha20_ABYTES, "%s: invalid message");
 +	result_len =
 +		VARSIZE_ANY_EXHDR (ciphertext) - crypto_aead_det_xchacha20_ABYTES;
@@ -1999,10 +1999,10 @@ index e6221c2..0000000
 -select * from finish();
 diff --git a/test/expected/test.out b/test/expected/test.out
 new file mode 100644
-index 0000000..1d69ec5
+index 0000000..84c4c15
 --- /dev/null
 +++ b/test/expected/test.out
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,86 @@
 +select no_plan();
 + no_plan 
 +---------
@@ -2083,63 +2083,36 @@ index 0000000..1d69ec5
 + ok 5 - bob can query an updated secret
 +(1 row)
 +
-+truncate vault.secrets;
-+reset role;
-+do $$
-+begin
-+  perform vault.create_secret(
-+    new_secret := '',
-+    new_name := 'empty_secret'
-+  );
-+end
-+$$;
-+select results_eq(
-+  $test$
-+    select decrypted_secret collate "default"
-+    from vault.decrypted_secrets
-+    where name = 'empty_secret'
-+  $test$,
-+  $results$values ('')$results$,
-+  'secret can be an empty string'
-+);
-+              results_eq              
-+--------------------------------------
-+ ok 6 - secret can be an empty string
-+(1 row)
-+
 +select * from finish();
 + finish 
 +--------
-+ 1..6
++ 1..5
 +(1 row)
 +
 diff --git a/test/fixtures.sql b/test/fixtures.sql
 new file mode 100644
-index 0000000..b323d22
+index 0000000..d4c00c8
 --- /dev/null
 +++ b/test/fixtures.sql
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,12 @@
 +CREATE ROLE bob login password 'bob';
-+
-+CREATE ROLE pgsodium_keyiduser WITH
-+   NOLOGIN
-+   NOSUPERUSER
-+   NOCREATEDB
-+   NOCREATEROLE
-+   INHERIT
-+   NOREPLICATION
-+   CONNECTION LIMIT -1;
 +
 +CREATE EXTENSION IF NOT EXISTS pgtap;
 +CREATE EXTENSION supabase_vault CASCADE;
 +
-+GRANT pgsodium_keyiduser TO bob;
++GRANT USAGE ON SCHEMA vault TO bob WITH GRANT OPTION;
++GRANT SELECT ON vault.secrets, vault.decrypted_secrets TO bob WITH GRANT OPTION;
++GRANT EXECUTE ON FUNCTION
++  vault.create_secret,
++  vault.update_secret,
++  vault._crypto_aead_det_decrypt
++TO bob WITH GRANT OPTION;
 diff --git a/test/sql/test.sql b/test/sql/test.sql
 new file mode 100644
-index 0000000..69dbccd
+index 0000000..064e382
 --- /dev/null
 +++ b/test/sql/test.sql
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,62 @@
 +select no_plan();
 +
 +do $$
@@ -2200,27 +2173,5 @@ index 0000000..69dbccd
 +    $test$,
 +    $results$values ('fooz', 'barz', 'bazz')$results$,
 +     'bob can query an updated secret');
-+
-+truncate vault.secrets;
-+reset role;
-+
-+do $$
-+begin
-+  perform vault.create_secret(
-+    new_secret := '',
-+    new_name := 'empty_secret'
-+  );
-+end
-+$$;
-+
-+select results_eq(
-+  $test$
-+    select decrypted_secret collate "default"
-+    from vault.decrypted_secrets
-+    where name = 'empty_secret'
-+  $test$,
-+  $results$values ('')$results$,
-+  'secret can be an empty string'
-+);
 +
 +select * from finish();
