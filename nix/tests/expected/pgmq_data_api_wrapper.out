@@ -55,7 +55,7 @@ alter role authenticated set statement_timeout = '8s';
 */
 create schema if not exists queues_public;
 grant usage on schema queues_public to postgres, anon, authenticated, service_role;
-create or replace function queues_public.pop(
+create or replace function queues_public.queue_pop(
     queue_name text
 )
   returns setof pgmq.message_record
@@ -70,8 +70,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.pop(queue_name text) is 'Retrieves and locks the next message from the specified queue.';
-create or replace function queues_public.send(
+comment on function queues_public.queue_pop(queue_name text) is 'Retrieves and locks the next message from the specified queue.';
+create or replace function queues_public.queue_send(
     queue_name text,
     message jsonb,
     sleep_seconds integer default 0  -- renamed from 'delay'
@@ -90,8 +90,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.send(queue_name text, message jsonb, sleep_seconds integer) is 'Sends a message to the specified queue, optionally delaying its availability by a number of seconds.';
-create or replace function queues_public.send_batch(
+comment on function queues_public.queue_send(queue_name text, message jsonb, sleep_seconds integer) is 'Sends a message to the specified queue, optionally delaying its availability by a number of seconds.';
+create or replace function queues_public.queue_send_batch(
     queue_name text,
     messages jsonb[],
     sleep_seconds integer default 0  -- renamed from 'delay'
@@ -110,8 +110,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.send_batch(queue_name text, messages jsonb[], sleep_seconds integer) is 'Sends a batch of messages to the specified queue, optionally delaying their availability by a number of seconds.';
-create or replace function queues_public.archive(
+comment on function queues_public.queue_send_batch(queue_name text, messages jsonb[], sleep_seconds integer) is 'Sends a batch of messages to the specified queue, optionally delaying their availability by a number of seconds.';
+create or replace function queues_public.queue_archive(
     queue_name text,
     message_id bigint
 )
@@ -127,8 +127,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.archive(queue_name text, message_id bigint) is 'Archives a message by moving it from the queue to a permanent archive.';
-create or replace function queues_public.archive(
+comment on function queues_public.queue_archive(queue_name text, message_id bigint) is 'Archives a message by moving it from the queue to a permanent archive.';
+create or replace function queues_public.queue_archive(
     queue_name text,
     message_id bigint
 )
@@ -144,8 +144,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.archive(queue_name text, message_id bigint) is 'Archives a message by moving it from the queue to a permanent archive.';
-create or replace function queues_public.delete(
+comment on function queues_public.queue_archive(queue_name text, message_id bigint) is 'Archives a message by moving it from the queue to a permanent archive.';
+create or replace function queues_public.queue_delete(
     queue_name text,
     message_id bigint
 )
@@ -161,8 +161,8 @@ begin
     );
 end;
 $$;
-comment on function queues_public.delete(queue_name text, message_id bigint) is 'Permanently deletes a message from the specified queue.';
-create or replace function queues_public.read(
+comment on function queues_public.queue_delete(queue_name text, message_id bigint) is 'Permanently deletes a message from the specified queue.';
+create or replace function queues_public.queue_read(
     queue_name text,
     sleep_seconds integer,
     n integer
@@ -181,19 +181,19 @@ begin
     );
 end;
 $$;
-comment on function queues_public.read(queue_name text, sleep_seconds integer, n integer) is 'Reads up to "n" messages from the specified queue with an optional "sleep_seconds" (visibility timeout).';
+comment on function queues_public.queue_read(queue_name text, sleep_seconds integer, n integer) is 'Reads up to "n" messages from the specified queue with an optional "sleep_seconds" (visibility timeout).';
 -- Grant execute permissions on wrapper functions to roles
-grant execute on function queues_public.pop(text) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_pop(text) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.pop(text) to postgres, service_role, anon, authenticated;
-grant execute on function queues_public.send(text, jsonb, integer) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_send(text, jsonb, integer) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.send(text, jsonb, integer) to postgres, service_role, anon, authenticated;
-grant execute on function queues_public.send_batch(text, jsonb[], integer) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_send_batch(text, jsonb[], integer) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.send_batch(text, jsonb[], integer) to postgres, service_role, anon, authenticated;
-grant execute on function queues_public.archive(text, bigint) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_archive(text, bigint) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.archive(text, bigint) to postgres, service_role, anon, authenticated;
-grant execute on function queues_public.delete(text, bigint) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_delete(text, bigint) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.delete(text, bigint) to postgres, service_role, anon, authenticated;
-grant execute on function queues_public.read(text, integer, integer) to postgres, service_role, anon, authenticated;
+grant execute on function queues_public.queue_read(text, integer, integer) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.read(text, integer, integer, jsonb) to postgres, service_role, anon, authenticated;
 ERROR:  function pgmq.read(text, integer, integer, jsonb) does not exist
 -- For the service role, we want full access
@@ -216,20 +216,20 @@ select pgmq.create('baz');
 begin;
 	set local role service_role;
 	-- Should Succeed 
-	select queues_public.send(
+	select queues_public.queue_send(
 		queue_name := 'baz',
 		message := '{}'
 	);
- send 
-------
-    1
+ queue_send 
+------------
+          1
 (1 row)
 
 rollback;
 begin;
 	set local role anon;
 	-- Should Fail
-	select queues_public.send(
+	select queues_public.queue_send(
 		queue_name := 'baz',
 		message := '{}'
 	);
@@ -246,12 +246,12 @@ SQL statement "select *
         msg := message,
         delay := sleep_seconds
     )"
-PL/pgSQL function queues_public.send(text,jsonb,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_send(text,jsonb,integer) line 3 at RETURN QUERY
 rollback;
 begin;
 	set local role authenticated;
 	-- Should Fail
-	select queues_public.send(
+	select queues_public.queue_send(
 		queue_name := 'baz',
 		message := '{}'
 	);
@@ -268,26 +268,26 @@ SQL statement "select *
         msg := message,
         delay := sleep_seconds
     )"
-PL/pgSQL function queues_public.send(text,jsonb,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_send(text,jsonb,integer) line 3 at RETURN QUERY
 rollback;
 -- service_role can read mesages, anon and authenticated can not
 begin;
 	set local role service_role;
 	-- Should Succeed 
-	select queues_public.read(
+	select queues_public.queue_read(
 		queue_name := 'baz',
 		sleep_seconds := 0,
 		n := 1
 	);
- read 
-------
+ queue_read 
+------------
 (0 rows)
 
 rollback;
 begin;
 	set local role anon;
 	-- Should Fail
-	select queues_public.read(
+	select queues_public.queue_read(
 		queue_name := 'baz',
 		sleep_seconds := 0,
 		n := 1
@@ -318,12 +318,12 @@ SQL statement "select *
         vt := sleep_seconds,
         qty := n
     )"
-PL/pgSQL function queues_public.read(text,integer,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_read(text,integer,integer) line 3 at RETURN QUERY
 rollback;
 begin;
 	set local role authenticated;
 	-- Should Fail
-	select queues_public.read(
+	select queues_public.queue_read(
 		queue_name := 'baz',
 		sleep_seconds := 0,
 		n := 1
@@ -354,7 +354,7 @@ SQL statement "select *
         vt := sleep_seconds,
         qty := n
     )"
-PL/pgSQL function queues_public.read(text,integer,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_read(text,integer,integer) line 3 at RETURN QUERY
 rollback;
 /*
 	WORKFLOW: Create a Queue named "baz"
@@ -428,7 +428,7 @@ select front_end.create_queue(
 begin;
 	set local role anon;
 	-- Should Fail
-	select queues_public.read(
+	select queues_public.queue_read(
 		queue_name := 'qux',
 		sleep_seconds := 0,
 		n := 1
@@ -459,53 +459,53 @@ SQL statement "select *
         vt := sleep_seconds,
         qty := n
     )"
-PL/pgSQL function queues_public.read(text,integer,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_read(text,integer,integer) line 3 at RETURN QUERY
 rollback;
 -- Should all work
 begin;
 	set local role authenticated;
 	-- Should succeed
-	select queues_public.send(
+	select queues_public.queue_send(
 		queue_name := 'qux',
 		message := '{}'
 	);
- send 
-------
-    1
+ queue_send 
+------------
+          1
 (1 row)
 
-	select queues_public.send_batch(
+	select queues_public.queue_send_batch(
 		queue_name := 'qux',
 		messages := array['{"a": 1}', '{"b": 2}']::jsonb[]
 	);
- send_batch 
-------------
-          2
-          3
+ queue_send_batch 
+------------------
+                2
+                3
 (2 rows)
 
-	select queues_public.pop(
+	select queues_public.queue_pop(
 		queue_name := 'qux'
 	);
- pop 
------
+ queue_pop 
+-----------
 (0 rows)
 
-	select queues_public.delete(
+	select queues_public.queue_delete(
 		queue_name := 'qux',
 		message_id := 2
 	);
- delete 
---------
+ queue_delete 
+--------------
  t
 (1 row)
 
-	select queues_public.archive(
+	select queues_public.queue_archive(
 		queue_name := 'qux',
 		message_id := 3
 	);
- archive 
----------
+ queue_archive 
+---------------
  t
 (1 row)
 
@@ -532,7 +532,7 @@ PL/pgSQL function front_end.create_queue(text,boolean,boolean,text) line 25 at E
 begin;
 	set local role authenticated;
 	-- Should fail 
-	select queues_public.send(
+	select queues_public.queue_send(
 		queue_name := 'waldo',
 		message := '{}'
 	);
@@ -551,17 +551,17 @@ SQL statement "select *
         msg := message,
         delay := sleep_seconds
     )"
-PL/pgSQL function queues_public.send(text,jsonb,integer) line 3 at RETURN QUERY
+PL/pgSQL function queues_public.queue_send(text,jsonb,integer) line 3 at RETURN QUERY
 rollback;
 /*
 	Cleanup
 */
 drop schema queues_public cascade;
 NOTICE:  drop cascades to 6 other objects
-DETAIL:  drop cascades to function queues_public.pop(text)
-drop cascades to function queues_public.send(text,jsonb,integer)
-drop cascades to function queues_public.send_batch(text,jsonb[],integer)
-drop cascades to function queues_public.archive(text,bigint)
-drop cascades to function queues_public.delete(text,bigint)
-drop cascades to function queues_public.read(text,integer,integer)
+DETAIL:  drop cascades to function queues_public.queue_pop(text)
+drop cascades to function queues_public.queue_send(text,jsonb,integer)
+drop cascades to function queues_public.queue_send_batch(text,jsonb[],integer)
+drop cascades to function queues_public.queue_archive(text,bigint)
+drop cascades to function queues_public.queue_delete(text,bigint)
+drop cascades to function queues_public.queue_read(text,integer,integer)
 drop extension pgmq cascade; create extension pgmq;
