@@ -55,54 +55,55 @@ packer {
   }
 }
 
-source "qemu" "supabase_postgres" {
-  vm_name              = "ubuntu-2004-amd64-iso.qcow2"
-  iso_url              = "https://www.releases.ubuntu.com/20.04/ubuntu-20.04.6-live-server-amd64.iso"
-  iso_checksum         = "sha256:b8f31413336b9393ad5d8ef0282717b2ab19f007df2e9ed5196c13d8f9153c8b"
-  # vm_name              = "ubuntu-2404-amd64.raw"
-  # iso_url              = "https://www.releases.ubuntu.com/24.04/ubuntu-24.04-live-server-amd64.iso"
-  memory = 20000
-  disk_image = false
-  output_directory = "output_images"
-  shutdown_command = "echo 'packer' | sudo -S shutdown -P now"
-  disk_size = "9000M"
-  format = "qcow2"
-  accelerator = "kvm"
-  net_device = "virtio-net"
-  disk_interface = "virtio"
-  boot_wait = "10s"
+source "amazon-ebs" "ubuntu" {
+  ami_name      = "${var.ami_name}-${var.postgres-version}"
+  instance_type = "c6g.4xlarge"
+  region        = "${var.region}"
+  source_ami_filter {
+    filters = {
+      name   = "${var.ami_name}-${var.postgres-version}-stage-1"
+      root-device-type    = "ebs"
+      virtualization-type = "hvm"
+    }
+    most_recent = true
+    owners      = ["amazon", "self"]
+  }
+  
+  communicator = "ssh"
+  ssh_pty = true
+  ssh_username = "ubuntu"
+  ssh_timeout = "5m"
+  
+  associate_public_ip_address = true
 
-  boot_command         = [
-    # Make the language selector appear...
-    " <up><wait>",
-    # ...then get rid of it
-    " <up><wait><esc><wait>",
 
-    # Go to the other installation options menu and leave it
-    "<f6><wait><esc><wait>",
-
-    # Remove the kernel command-line that already exists
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-    "<bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>",
-
-    # Add kernel command-line and start install
-    "/casper/vmlinuz ",
-    "initrd=/casper/initrd ",
-    "autoinstall ",
-    "ds=nocloud-net;s=http://{{.HTTPIP}}:{{.HTTPPort}}/ ",
-    "<enter>"
-  ]
-  http_directory       = "http"
-  ssh_username         = "packer"
-  ssh_password         = "packer"
-  ssh_timeout          = "60m"
+  ena_support = true
+  
+  run_tags = {
+    creator           = "packer"
+    appType           = "postgres"
+    packerExecutionId = "${var.packer-execution-id}"
+  }
+  run_volume_tags = {
+    creator = "packer"
+    appType = "postgres"
+  }
+  snapshot_tags = {
+    creator = "packer"
+    appType = "postgres"
+  }
+  tags = {
+    creator = "packer"
+    appType = "postgres"
+    postgresVersion = "${var.postgres-version}"
+    sourceSha = "${var.git-head-version}"
+  }
 }
 
 build {
   name = "nix-packer-ubuntu"
   sources = [
-    "source.qemu.supabase_postgres"
+    "source.amazon-ebs.ubuntu"
   ]
 
   # Copy ansible playbook
