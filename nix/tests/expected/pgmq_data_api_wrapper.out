@@ -1,5 +1,5 @@
-/*
-	This test is to validate the SQL for the Supabase Queues integration that
+/*	
+    This test is to validate the SQL for the Supabase Queues integration that
 	will be triggered in the FE and documented for how to manually expose
 	queues over supabase client libs by wrapping `pgmq`'s functions into a
 	separate schema that we can add to PostgREST's 'exposed_schemas' setting
@@ -194,8 +194,7 @@ grant execute on function pgmq.archive(text, bigint) to postgres, service_role, 
 grant execute on function queues_public.queue_delete(text, bigint) to postgres, service_role, anon, authenticated;
 grant execute on function pgmq.delete(text, bigint) to postgres, service_role, anon, authenticated;
 grant execute on function queues_public.queue_read(text, integer, integer) to postgres, service_role, anon, authenticated;
-grant execute on function pgmq.read(text, integer, integer, jsonb) to postgres, service_role, anon, authenticated;
-ERROR:  function pgmq.read(text, integer, integer, jsonb) does not exist
+grant execute on function pgmq.read(text, integer, integer) to postgres, service_role, anon, authenticated;
 -- For the service role, we want full access
 -- Grant permissions on existing tables
 grant all privileges on all tables in schema pgmq to postgres, service_role;
