@@ -1,6 +1,8 @@
 import subprocess
 import json
 import sys
+import argparse
+
 
 # Expected groups for each user
 expected_results = {
@@ -88,6 +90,9 @@ expected_results = {
     "messagebus": [
         {"groupname":"messagebus","username":"messagebus"}
     ],
+    "ec2-instance-connect": [
+        {"groupname": "nogroup", "username": "ec2-instance-connect"}
+    ],
     "sshd": [
         {"groupname":"nogroup","username":"sshd"}
     ],
@@ -142,6 +147,7 @@ expected_results = {
     ]
 }
 
+
 # This program depends on osquery being installed on the system
 # Function to run osquery
 def run_osquery(query):
@@ -149,12 +155,14 @@ def run_osquery(query):
     output, error = process.communicate()
     return output.decode('utf-8')
 
+
 def parse_json(json_str):
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
         print("Error decoding JSON:", e)
         sys.exit(1)
+
 
 def compare_results(username, query_result):
     expected_result = expected_results.get(username)
@@ -169,6 +177,7 @@ def compare_results(username, query_result):
         print("Expected:", expected_result)
         print("Got:", query_result)
         sys.exit(1)
+
 
 def check_nixbld_users():
     query = """
@@ -188,15 +197,30 @@ def check_nixbld_users():
 
     print("All nixbld users are in the 'nixbld' group.")
 
-# Define usernames for which you want to compare results
-usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","gnats","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
 
-# Iterate over usernames, run the query, and compare results
-for username in usernames:
-    query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}' ORDER BY g.groupname;"
-    query_result = run_osquery(query)
-    parsed_result = parse_json(query_result)
-    compare_results(username, parsed_result)
+def main():
+    parser = argparse.ArgumentParser(
+        prog='Supabase Postgres Artifact Permissions Checker',
+        description='Checks the Postgres Artifact for the appropriate users and group memberships')
+    parser.add_argument('-q', '--qemu', action='store_true', help='Whether we are checking a QEMU artifact')
+    args = parser.parse_args()
+    qemu_artifact = args.qemu or False
 
-# Check if all nixbld users are in the nixbld group
-check_nixbld_users()
+    # Define usernames for which you want to compare results
+    usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","gnats","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
+    if not qemu_artifact:
+        usernames.append("ec2-instance-connect")
+
+    # Iterate over usernames, run the query, and compare results
+    for username in usernames:
+        query = f"SELECT u.username, g.groupname FROM users u JOIN user_groups ug ON u.uid = ug.uid JOIN groups g ON ug.gid = g.gid WHERE u.username = '{username}' ORDER BY g.groupname;"
+        query_result = run_osquery(query)
+        parsed_result = parse_json(query_result)
+        compare_results(username, parsed_result)
+
+    # Check if all nixbld users are in the nixbld group
+    check_nixbld_users()
+
+
+if __name__ == "__main__":
+    main()

@@ -96,7 +96,7 @@ EOF
     # Run Ansible playbook
     export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
     ansible-playbook ./ansible/playbook.yml \
-        --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false}' \
+        --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false, "qemu_mode": true}' \
         --extra-vars "git_commit_sha=${GIT_SHA}"
 }
 
