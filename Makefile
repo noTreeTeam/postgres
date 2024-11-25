@@ -2,11 +2,11 @@
 UPSTREAM_NIX_GIT_SHA := $(shell git rev-parse origin/release/15.6)
 GIT_SHA := $(shell git describe --tags --always --dirty)
 
-init: amazon-arm64-nix.pkr.hcl
-	packer init amazon-arm64-nix.pkr.hcl
+init: qemu-arm64-nix.pkr.hcl
+	packer init qemu-arm64-nix.pkr.hcl
 
-output-cloudimg/packer-cloudimg: ansible amazon-arm64-nix.pkr.hcl
-	packer build -var "git_sha=$(UPSTREAM_NIX_GIT_SHA)" amazon-arm64-nix.pkr.hcl
+output-cloudimg/packer-cloudimg: ansible qemu-arm64-nix.pkr.hcl
+	packer build -var "git_sha=$(UPSTREAM_NIX_GIT_SHA)" qemu-arm64-nix.pkr.hcl
 
 disk/focal-raw.img: output-cloudimg/packer-cloudimg
 	mkdir -p disk
