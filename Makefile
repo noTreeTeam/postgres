@@ -13,7 +13,7 @@ disk/focal-raw.img: output-cloudimg/packer-cloudimg
 	sudo qemu-img convert -O raw output-cloudimg/packer-cloudimg disk/focal-raw.img
 
 container-disk-image: disk/focal-raw.img
-	sudo nerdctl build . -t supabase-postgres-test:$(GIT_SHA) --namespace k8s.io -f ./Dockerfile-kubevirt
+	docker build . -t supabase-postgres-test:$(GIT_SHA) -f ./Dockerfile-kubevirt
 
 host-disk: disk/focal-raw.img
 	sudo chown 107 -R disk

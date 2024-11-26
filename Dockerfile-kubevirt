@@ -1,2 +1,2 @@
 FROM scratch
-ADD --chown=107:107 focal.img /disk/focal.qcow2
+ADD --chown=107:107 focal-raw.img /disk/focal.qcow2

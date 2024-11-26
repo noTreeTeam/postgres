@@ -72,6 +72,8 @@ EOF
 	locale-gen en_US.UTF-8
 }
 
+sed -i 's/- hosts: all/- hosts: localhost/' ansible/playbook.yml
+
 waitfor_boot_finished
 install_packages
 setup_postgesql_env
@@ -92,7 +94,6 @@ function execute_stage2_playbook {
 [defaults]
 callbacks_enabled = timer, profile_tasks, profile_roles
 EOF
-    # sed -i 's/- hosts: all/- hosts: localhost/' /tmp/ansible-playbook/ansible/playbook.yml
     # Run Ansible playbook
     export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
     ansible-playbook ./ansible/playbook.yml \
