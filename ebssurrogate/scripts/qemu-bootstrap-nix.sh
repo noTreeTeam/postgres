@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-#
-# This script creates filesystem and setups up chrooted
-# enviroment for further processing. It also runs
-# ansible playbook and finally does system cleanup.
-#
-# Adapted from: https://github.com/jen20/packer-ubuntu-zfs
 
 set -o errexit
 set -o pipefail
@@ -41,9 +35,8 @@ tee /etc/ansible/ansible.cfg <<EOF
 callbacks_enabled = timer, profile_tasks, profile_roles
 EOF
 	# Run Ansible playbook
-	#export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_DEBUG=True && export ANSIBLE_REMOTE_TEMP=/mnt/tmp 
 	export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/mnt/tmp
-	ansible-playbook ./ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' # $ARGS - I think this is being not passed in correctly
+	ansible-playbook ./ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}'
 }
 
 function setup_postgesql_env {
@@ -80,7 +73,10 @@ setup_postgesql_env
 setup_locale
 execute_playbook
 
+####################
 # stage 2 things
+####################
+
 function install_nix() {
     sudo su -c "curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm \
     --extra-conf \"substituters = https://cache.nixos.org https://nix-postgres-artifacts.s3.amazonaws.com\" \
