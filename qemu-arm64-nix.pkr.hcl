@@ -1,36 +1,6 @@
-variable "ami" {
-  type    = string
-  default = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-arm64-server-*"
-}
-
-variable "profile" {
-  type    = string
-  default = "${env("AWS_PROFILE")}"
-}
-
-variable "ami_name" {
-  type    = string
-  default = "supabase-postgres"
-}
-
-variable "ami_regions" {
-  type    = list(string)
-  default = ["ap-southeast-2"]
-}
-
 variable "ansible_arguments" {
   type    = string
   default = "--skip-tags install-postgrest,install-pgbouncer,install-supabase-internal"
-}
-
-variable "aws_access_key" {
-  type    = string
-  default = ""
-}
-
-variable "aws_secret_key" {
-  type    = string
-  default = ""
 }
 
 variable "environment" {
@@ -40,36 +10,6 @@ variable "environment" {
 
 variable "git_sha" {
   type    = string
-}
-
-# variable "region" {
-#   type    = string
-# }
-
-variable "build-vol" {
-  type    = string
-  default = "xvdc"
-}
-
-# ccache docker image details
-variable "docker_user" {
-  type    = string
-  default = ""
-}
-
-variable "docker_passwd" {
-  type    = string
-  default = ""
-}
-
-variable "docker_image" {
-  type    = string
-  default = ""
-}
-
-variable "docker_image_tag" {
-  type    = string
-  default = "latest"
 }
 
 locals {
@@ -89,11 +29,6 @@ variable "git-head-version" {
 variable "packer-execution-id" {
   type = string
   default = "unknown"
-}
-
-variable "force-deregister" {
-  type    = bool
-  default = false
 }
 
 packer {
@@ -132,16 +67,12 @@ source "qemu" "cloudimg" {
   disk_image     = true
   disk_size      = "15G"
   format         = "qcow2"
-  # TODO (darora): disable backing image for qcow2
   headless       = true
   http_directory = "http"
   iso_checksum   = "file:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS"
   iso_url        = "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img"
   memory         = 20000
   qemu_binary    = "qemu-system-aarch64"
-  qemu_img_args {
-    create = ["-F", "qcow2"]
-  }
   qemuargs = [
     ["-machine", "virt"],
     ["-cpu", "host"],
@@ -158,8 +89,8 @@ source "qemu" "cloudimg" {
   ssh_timeout            = "1h"
   ssh_username           = "ubuntu"
   ssh_wait_timeout       = "1h"
-  use_backing_file       = true
-  accelerator = "kvm"
+  use_backing_file       = false
+  accelerator            = "kvm"
 }
 
 build {
