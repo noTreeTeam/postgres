@@ -5,6 +5,8 @@ on:
     branches:
       - develop
       - release/*
+      #TODO PR remove this prior to merge
+      - oriole-ami-rename
     paths:
       - '.github/workflows/ami-release-nix.yml'
       - 'common-nix.vars.pkr.hcl'
