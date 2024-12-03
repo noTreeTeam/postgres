@@ -404,7 +404,10 @@
                 name = "extension-custom-scripts";
                 path = ./ansible/files/postgresql_extension_custom_scripts;
               };
-              getkeyScript = ./nix/tests/util/pgsodium_getkey.sh;
+              getkeyScript = pkgs.writeScriptBin "pgsodium_getkey.sh" ''
+                #!${pkgs.bash}/bin/bash
+                ${builtins.readFile ./nix/tests/util/pgsodium_getkey.sh}
+              '';
               localeArchive = if pkgs.stdenv.isDarwin
                 then "${pkgs.darwin.locale}/share/locale"
                 else "${pkgs.glibcLocales}/lib/locale/locale-archive";
@@ -430,7 +433,7 @@
                 --subst-var-by 'PSQL_CONF_FILE' $out/etc/postgresql/postgresql.conf \
                 --subst-var-by 'PSQL16_BINDIR' '${basePackages.psql_16.bin}' \
                 --subst-var-by 'PSQLORIOLEDB17_BINDIR' '${basePackages.psql_orioledb-17.bin}' \
-                --subst-var-by 'PGSODIUM_GETKEY' '${getkeyScript}' \
+                --subst-var-by 'PGSODIUM_GETKEY' '${getkeyScript}/bin/pgsodium_getkey.sh' \
                 --subst-var-by 'READREPL_CONF_FILE' "$out/etc/postgresql-custom/read-replica.conf" \
                 --subst-var-by 'LOGGING_CONF_FILE' "$out/etc/postgresql-custom/logging.conf" \
                 --subst-var-by 'SUPAUTILS_CONF_FILE' "$out/etc/postgresql-custom/supautils.conf" \
