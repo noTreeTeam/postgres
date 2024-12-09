@@ -5,6 +5,7 @@ on:
     branches:
       - develop
       - release/*
+      - sam/fix/pgmq-ownership
     paths:
       - '.github/workflows/ami-release-nix.yml'
       - 'common-nix.vars.pkr.hcl'
