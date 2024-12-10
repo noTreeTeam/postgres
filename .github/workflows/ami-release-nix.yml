@@ -5,6 +5,7 @@ on:
     branches:
       - develop
       - release/*
+      - sam/15-6-merge-staging
     paths:
       - '.github/workflows/ami-release-nix.yml'
       - 'common-nix.vars.pkr.hcl'
