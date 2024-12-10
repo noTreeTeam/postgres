@@ -55,7 +55,6 @@ create extension pg_visibility;
 create extension pg_walinspect;
 create extension pgaudit;
 create extension pgcrypto;
-create extension pgmq;
 create extension pgtap;
 create extension pgjwt;
 create extension pgroonga;
