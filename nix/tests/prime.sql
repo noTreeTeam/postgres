@@ -28,6 +28,7 @@ create extension ltree;
 create extension moddatetime;
 create extension old_snapshot;
 create extension pageinspect;
+create extension pg_backtrace;
 create extension pg_buffercache;
 
 /*
@@ -54,6 +55,7 @@ create extension pg_visibility;
 create extension pg_walinspect;
 create extension pgaudit;
 create extension pgcrypto;
+create extension pgmq;
 create extension pgtap;
 create extension pgjwt;
 create extension pgroonga;
@@ -62,11 +64,9 @@ create extension pgsodium;
 create extension pgrowlocks;
 create extension pgstattuple;
 create extension plpgsql_check;
-
 create extension plv8;
 create extension plcoffee;
 create extension plls;
-
 create extension postgis;
 create extension postgis_raster;
 create extension postgis_sfcgal;
@@ -89,10 +89,3 @@ create extension "uuid-ossp";
 create extension vector;
 create extension wrappers;
 create extension xml2;
-
-
- 
- 
- 
-
-CREATE EXTENSION IF NOT EXISTS pg_backtrace;

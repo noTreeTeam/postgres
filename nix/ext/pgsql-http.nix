@@ -2,7 +2,7 @@
 
 stdenv.mkDerivation rec {
   pname = "pgsql-http";
-  version = "1.6.0";
+  version = "1.6.1";
 
   buildInputs = [ curl postgresql ];
 
@@ -10,13 +10,13 @@ stdenv.mkDerivation rec {
     owner = "pramsey";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-CPHfx7vhWfxkXsoKTzyFuTt47BPMvzi/pi1leGcuD60=";
+    hash = "sha256-C8eqi0q1dnshUAZjIsZFwa5FTYc7vmATF3vv2CReWPM=";
   };
 
   installPhase = ''
     mkdir -p $out/{lib,share/postgresql/extension}
 
-    cp *.so      $out/lib
+    cp *${postgresql.dlSuffix}      $out/lib
     cp *.sql     $out/share/postgresql/extension
     cp *.control $out/share/postgresql/extension
   '';
