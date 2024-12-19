@@ -30,9 +30,9 @@ begin
             case when c.relpersistence = 'u' then true else false end as is_unlogged,
             now() as created_at
         from
-			pg_catalog.pg_class c
-        	join pg_catalog.pg_namespace n
-				on c.relnamespace = n.oid
+            pg_catalog.pg_class c
+            join pg_catalog.pg_namespace n
+                on c.relnamespace = n.oid
         where
             n.nspname = 'pgmq'
             and c.relname like 'q_%'
@@ -40,5 +40,24 @@ begin
         on conflict (queue_name) do nothing;
     end if;
 end $$;
+
+do $$
+declare
+    rec record;
+begin
+    for rec in
+        select n.nspname as sequence_schema, c.relname as sequence_name
+        from pg_catalog.pg_class c
+        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+        join pg_catalog.pg_roles r on r.oid = c.relowner
+        where
+            c.relkind = 'S'
+            and n.nspname = 'pgmq'
+            and r.rolname = 'supabase_admin'
+    loop
+        execute format('alter sequence %I.%I owner to postgres', rec.sequence_schema, rec.sequence_name);
+    end loop;
+end;
+$$;
 
 -- migrate:down
