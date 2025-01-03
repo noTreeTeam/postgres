@@ -7,11 +7,15 @@
   openssl,
   curl,
   pkg-config,
-  cargo,
-  rustc,
   cacert,
+  rust-bin,
 }:
 
+let
+  rustVersion = "1.80.0";
+  rustc = rust-bin.stable."${rustVersion}".rustc;
+  cargo = rust-bin.stable."${rustVersion}".cargo;
+in
 stdenv.mkDerivation rec {
   pname = "pg_mooncake";
   version = "61a2c495ba8e8bbcf59142f05dc85a3059bdf42c";
