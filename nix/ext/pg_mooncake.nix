@@ -12,9 +12,19 @@
 }:
 
 let
-  rustVersion = "1.80.0";
-  rustc = rust-bin.stable."${rustVersion}".rustc;
-  cargo = rust-bin.stable."${rustVersion}".cargo;
+  rustVersion = "1.81.0";
+  targets = [
+    "aarch64-apple-darwin"
+    "x86_64-apple-darwin"
+    "x86_64-unknown-linux-gnu"
+    "aarch64-unknown-linux-gnu"
+  ];
+  rustc = rust-bin.stable."${rustVersion}".default.override {
+    inherit targets;
+  };
+  cargo = rust-bin.stable."${rustVersion}".default.override {
+    inherit targets;
+  };
 in
 stdenv.mkDerivation rec {
   pname = "pg_mooncake";
