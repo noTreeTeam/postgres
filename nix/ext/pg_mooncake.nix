@@ -10,7 +10,8 @@
   cacert,
   rust-bin,
   git,
-  python3
+  python3,
+  darwin ? null
 }:
 
 let
@@ -55,8 +56,15 @@ stdenv.mkDerivation rec {
     openssl
     curl
     cacert
+  ] ++ lib.optionals stdenv.isDarwin [
+    darwin.Security
+    darwin.apple_sdk.frameworks.Security
+    darwin.apple_sdk.frameworks.CoreFoundation
+    darwin.apple_sdk.frameworks.CoreServices
+    darwin.apple_sdk.frameworks.Foundation
+    darwin.apple_sdk.frameworks.SystemConfiguration
+    darwin.apple_sdk.frameworks.ApplicationServices
   ];
-
 
 
   # Skip the default configure phase because there's no top-level CMakeLists.txt.
@@ -87,7 +95,9 @@ stdenv.mkDerivation rec {
     # Add compiler flags to ignore unused const variables
     export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
     export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
-    
+    ${lib.optionalString (stdenv.isDarwin) ''
+      export LDFLAGS="-framework Security -framework CoreFoundation -F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
+    ''}
     # Build the extension
     HOME="$HOME" \
     CARGO_HOME="$CARGO_HOME" \
