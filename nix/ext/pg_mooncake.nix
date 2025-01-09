@@ -83,32 +83,40 @@ stdenv.mkDerivation rec {
     sed -i 's/static constexpr char r2_filename_prefix\[\] = "r2:\/\/";/static constexpr char r2_filename_prefix[] __attribute__((unused)) = "r2:\/\/";/' src/pgduckdb/utility/copy.cpp
   '';
 
-  buildPhase = ''
-    export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
-    export HOME=$PWD/home
-    export CARGO_HOME=$HOME/cargo
-    mkdir -p "$CARGO_HOME"
+buildPhase = ''
+  export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
+  export HOME=$PWD/home
+  export CARGO_HOME=$HOME/cargo
+  mkdir -p "$CARGO_HOME"
 
-    # Modify the Makefile to remove -Werror
-    sed -i 's/-Werror//' Makefile
+  # Modify the Makefile to remove -Werror
+  sed -i 's/-Werror//' Makefile
 
-    # Add compiler flags to ignore unused const variables
-    export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
-    export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
-    ${lib.optionalString (stdenv.isDarwin) ''
-      export LDFLAGS="-framework Security -framework CoreFoundation -F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
-    ''}
-    # Build the extension
-    HOME="$HOME" \
-    CARGO_HOME="$CARGO_HOME" \
-    ${lib.optionalString (stdenv.isDarwin) ''
-      make release SHARED_LIBRARY_NAME=libduckdb.dylib SHARED_LIBRARY_SUFFIX=.dylib
-    ''} \
-    ${lib.optionalString (!stdenv.isDarwin) ''
-      make release
-    ''} \
-    -j$NIX_BUILD_CORES PG_CONFIG="${postgresql}/bin/pg_config" 
-  '';
+  # Add compiler flags to ignore unused const variables
+  export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
+  export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
+  ${lib.optionalString (stdenv.isDarwin) ''
+    # Export flags for both the linker and Rust
+    export PG_LDFLAGS="-framework Security -framework CoreFoundation"
+    export LDFLAGS="-framework Security -framework CoreFoundation -F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
+    export RUSTFLAGS="-C link-arg=-framework -C link-arg=Security -C link-arg=-framework -C link-arg=CoreFoundation"
+    
+    # Modify the PGXS Makefile to include our frameworks
+    sed -i 's|^SHLIB_LINK =.*|& $(PG_LDFLAGS)|' $(pg_config --pgxs)
+  ''}
+
+  # Build the extension
+  HOME="$HOME" \
+  CARGO_HOME="$CARGO_HOME" \
+  ${lib.optionalString (stdenv.isDarwin) ''
+    make release SHARED_LIBRARY_NAME=libduckdb.dylib SHARED_LIBRARY_SUFFIX=.dylib \
+      PG_LDFLAGS="$PG_LDFLAGS"
+  ''} \
+  ${lib.optionalString (!stdenv.isDarwin) ''
+    make release
+  ''} \
+  -j$NIX_BUILD_CORES PG_CONFIG="${postgresql}/bin/pg_config" 
+'';
 
   installPhase = ''
     mkdir -p $out/{lib,share/postgresql/extension}
