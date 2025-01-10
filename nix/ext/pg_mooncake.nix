@@ -11,7 +11,8 @@
   rust-bin,
   git,
   python3,
-  darwin ? null
+  darwin ? null,
+  lz4
 }:
 
 let
@@ -49,6 +50,7 @@ stdenv.mkDerivation rec {
     pkg-config
     git
     python3
+    lz4.dev
   ];
 
   buildInputs = [
@@ -56,6 +58,7 @@ stdenv.mkDerivation rec {
     openssl
     curl
     cacert
+    lz4.out
   ] ++ lib.optionals stdenv.isDarwin [
     darwin.Security
     darwin.apple_sdk.frameworks.Security
@@ -71,11 +74,13 @@ stdenv.mkDerivation rec {
   dontConfigure = true;
  
   patchPhase = lib.optionalString (stdenv.isDarwin) ''
+    sed -i '/cxx_build::bridge("src\/lib.rs")/c\    let mut build = cxx_build::bridge("src/lib.rs");\n    build.flag("-framework").flag("Security").flag("-framework").flag("CoreFoundation");' rust_extensions/delta/build.rs
     # Replace libduckdb.so with libduckdb.dylib in Makefile and Makefile.build
     sed -i 's|libduckdb\.so|libduckdb.dylib|g' Makefile Makefile.build
     
     # Modify library lookup 
     find . -type f \( -name "Makefile" -o -name "Makefile.build" -o -name "*.cmake" -o -name "CMakeLists.txt" -o -name "*.make" \) -print0 | xargs -0 sed -i 's|-L[^ ]*/third_party/duckdb/build/release/src|-L../../third_party/duckdb/build/release/src -install_name @rpath/libduckdb.dylib|g'
+    substituteInPlace third_party/duckdb/CMakeLists.txt --replace "-lz4" "-llz4"
   '' + ''
     # Modify copy.cpp to add __attribute__((unused)) to const variables
     sed -i 's/static constexpr char s3_filename_prefix\[\] = "s3:\/\/";/static constexpr char s3_filename_prefix[] __attribute__((unused)) = "s3:\/\/";/' src/pgduckdb/utility/copy.cpp
@@ -89,45 +94,33 @@ buildPhase = ''
   export CARGO_HOME=$HOME/cargo
   mkdir -p "$CARGO_HOME"
 
-  # Modify the Makefile to remove -Werror
   sed -i 's/-Werror//' Makefile
 
-  # Add compiler flags to ignore unused const variables
-  export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
-  export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
   ${lib.optionalString (stdenv.isDarwin) ''
-    # Export flags for both the linker and Rust
-    export PG_LDFLAGS="-framework Security -framework CoreFoundation"
-    export LDFLAGS="-framework Security -framework CoreFoundation -F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
-    export RUSTFLAGS="-C link-arg=-framework -C link-arg=Security -C link-arg=-framework -C link-arg=CoreFoundation"
-    
-    # Modify the PGXS Makefile to include our frameworks
-    sed -i 's|^SHLIB_LINK =.*|& $(PG_LDFLAGS)|' $(pg_config --pgxs)
+    export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
+  ''}
+  ${lib.optionalString (!stdenv.isDarwin) ''
+    export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
+  ''}
+  export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
+  
+  ${lib.optionalString (stdenv.isDarwin) ''
+    # Bundle loader and C++ runtime flags
+    export PG_LDFLAGS="-bundle -bundle_loader ${postgresql}/bin/postgres -lc++ -lc++abi"
+    # Framework flags
+    export FRAMEWORK_FLAGS="-F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
   ''}
 
-  # Build the extension
   HOME="$HOME" \
   CARGO_HOME="$CARGO_HOME" \
   ${lib.optionalString (stdenv.isDarwin) ''
-    make release SHARED_LIBRARY_NAME=libduckdb.dylib SHARED_LIBRARY_SUFFIX=.dylib \
-      PG_LDFLAGS="$PG_LDFLAGS"
+    make release SHARED_LIBRARY_NAME=libduckdb.dylib SHARED_LIBRARY_SUFFIX=.dylib SHLIB_LINK="-L. -ldelta -llz4" PG_LIBS="$PG_LDFLAGS $FRAMEWORK_FLAGS"
   ''} \
   ${lib.optionalString (!stdenv.isDarwin) ''
     make release
   ''} \
-  -j$NIX_BUILD_CORES PG_CONFIG="${postgresql}/bin/pg_config" 
+  -j$NIX_BUILD_CORES PG_CONFIG="${postgresql}/bin/pg_config"
 '';
-
-  installPhase = ''
-    mkdir -p $out/{lib,share/postgresql/extension}
-    cp *${postgresql.dlSuffix}      $out/lib
-    cp *.sql     $out/share/postgresql/extension
-
-    # On Darwin, ensure library paths are correct
-    ${lib.optionalString (stdenv.isDarwin) ''
-      install_name_tool -change libduckdb.dylib @rpath/libduckdb.dylib $out/lib/*${postgresql.dlSuffix}
-    ''}
-  '';
 
   meta = with lib; {
     description = "Mooncake: user-defined pipeline analytics in Postgres";
