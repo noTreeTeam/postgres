@@ -35,9 +35,12 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ perl pkg-config ];
   dontDisableStatic = true;
 
-  # postgis config directory assumes /include /lib from the same root for json-c library
-  env.NIX_LDFLAGS = "-L${lib.getLib json_c}/lib";
+  # Copy our SQL file into the source
+  postUnpack = ''
+    cp ${./tiger_search_path.sql} $sourceRoot/tiger_search_path.sql
+  '';
 
+  env.NIX_LDFLAGS = "-L${lib.getLib json_c}/lib";
 
   preConfigure = ''
     sed -i 's@/usr/bin/file@${file}/bin/file@' configure
@@ -45,6 +48,7 @@ stdenv.mkDerivation rec {
 
     makeFlags="PERL=${perl}/bin/perl datadir=$out/share/postgresql pkglibdir=$out/lib bindir=$out/bin docdir=$doc/share/doc/${pname}"
   '';
+
   postConfigure = ''
     sed -i "s|@mkdir -p \$(DESTDIR)\$(PGSQL_BINDIR)||g ;
             s|\$(DESTDIR)\$(PGSQL_BINDIR)|$prefix/bin|g
@@ -54,28 +58,33 @@ stdenv.mkDerivation rec {
             " \
         "raster/scripts/python/Makefile";
     mkdir -p $out/bin
-
-    # postgis' build system assumes it is being installed to the same place as postgresql, and looks
-    # for the postgres binary relative to $PREFIX. We gently support this system using an illusion.
     ln -s ${postgresql}/bin/postgres $out/bin/postgres
   '';
 
-  # create aliases for all commands adding version information
-  postInstall = ''
-    # Teardown the illusory postgres used for building; see postConfigure.
-    rm $out/bin/postgres
+postInstall = ''
+  rm $out/bin/postgres
 
-    for prog in $out/bin/*; do # */
-      ln -s $prog $prog-${version}
-    done
+  for prog in $out/bin/*; do # */
+    ln -s $prog $prog-${version}
+  done
 
-    for file in $out/share/postgresql/extension/postgis_topology*--${version}.sql; do
-      sed -i "/SELECT topology.AddToSearchPath('topology');/i SELECT topology.AddToSearchPath('extensions');" "$file"
-    done
+  # Add AddToSearchPath function to tiger_geocoder files
+  for file in $out/share/postgresql/extension/postgis_tiger_geocoder*--${version}.sql; do
+    # Insert the function near the start of the file
+    sed -i '/Copyright (C) 2010, 2011-2015 Regina Obe and Leo Hsu/r tiger_search_path.sql' "$file"
+    
+    # Add the call to AddToSearchPath just before the install_geocode_settings function
+    #sed -i '/CREATE FUNCTION install_geocode_settings()/i SELECT tiger.AddToSearchPath('"'"'extensions'"'"');' "$file"
+  done
 
-    mkdir -p $doc/share/doc/postgis
-    mv doc/* $doc/share/doc/postgis/
-  '';
+  # Original topology patching
+  for file in $out/share/postgresql/extension/postgis_topology*--${version}.sql; do
+    sed -i "/SELECT topology.AddToSearchPath('topology');/i SELECT topology.AddToSearchPath('extensions');" "$file"
+  done
+
+  mkdir -p $doc/share/doc/postgis
+  mv doc/* $doc/share/doc/postgis/
+'';
 
   passthru.tests.postgis = nixosTests.postgis;
 
