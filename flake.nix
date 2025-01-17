@@ -152,13 +152,15 @@
             x != ./nix/ext/postgis.nix && 
             x != ./nix/ext/pgrouting.nix &&
             x != ./nix/ext/pg_jsonschema.nix &&
+            x != ./nix/ext/pg_mooncake.nix &&
             x != ./nix/ext/pg_graphql.nix 
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
         pg16Extensions = builtins.filter (
           x:
-          x != ./nix/ext/timescaledb-2.9.1.nix
+          x != ./nix/ext/timescaledb-2.9.1.nix &&
+          x != ./nix/ext/pg_mooncake.nix
         ) ourExtensions;
         getPostgresqlPackage = version:
           pkgs.postgresql."postgresql_${version}";
