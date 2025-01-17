@@ -1,19 +1,19 @@
-{
-  lib,
-  stdenv,
-  fetchgit,
-  postgresql,
-  cmake,
-  openssl,
-  curl,
-  pkg-config,
-  cacert,
-  rust-bin,
-  git,
-  python3,
-  darwin ? null,
-  lz4,
-  llvmPackages_16
+{ lib
+, stdenv
+, fetchgit
+, postgresql
+, openssl
+, curl
+, pkg-config
+, cacert
+, rust-bin
+, git
+, python3
+, darwin ? null
+, lz4
+, llvmPackages_16
+, cmake
+, readline
 }:
 
 let
@@ -37,13 +37,14 @@ stdenv.mkDerivation rec {
 
   src = fetchgit {
     url = "https://github.com/olirice/pg_mooncake.git";
-    rev   = version;
-    hash  = "sha256-CUAbwirtrEbx97bGAU+/2wlB+nZ9fwb6ZuBptCJcxZ8=";
+    rev = version;
+    hash = "sha256-CUAbwirtrEbx97bGAU+/2wlB+nZ9fwb6ZuBptCJcxZ8=";
     fetchSubmodules = true;
     leaveDotGit = true;
   };
 
-  # Tools needed for building:
+  configurePhase = "true";
+
   nativeBuildInputs = [
     cargo
     rustc
@@ -54,6 +55,7 @@ stdenv.mkDerivation rec {
     lz4.dev
     llvmPackages_16.clang
     llvmPackages_16.libllvm
+    (lib.getDev postgresql)
   ];
 
   buildInputs = [
@@ -62,6 +64,7 @@ stdenv.mkDerivation rec {
     curl
     cacert
     lz4.out
+    readline
   ] ++ lib.optionals stdenv.isDarwin [
     darwin.Security
     darwin.apple_sdk.frameworks.Security
@@ -72,34 +75,36 @@ stdenv.mkDerivation rec {
     darwin.apple_sdk.frameworks.ApplicationServices
   ];
 
-  # Skip the default configure phase because there's no top-level CMakeLists.txt.
-  dontConfigure = true;
- 
-  patchPhase = lib.optionalString (stdenv.isDarwin) ''
-    sed -i '/cxx_build::bridge("src\/lib.rs")/c\    let mut build = cxx_build::bridge("src/lib.rs");\n    build.flag("-framework").flag("Security").flag("-framework").flag("CoreFoundation");' rust_extensions/delta/build.rs
-    # Replace libduckdb.so with libduckdb.dylib in Makefile and Makefile.build
-    sed -i 's|libduckdb\.so|libduckdb.dylib|g' Makefile Makefile.build
-    
-    # Modify library lookup 
-    find . -type f \( -name "Makefile" -o -name "Makefile.build" -o -name "*.cmake" -o -name "CMakeLists.txt" -o -name "*.make" \) -print0 | xargs -0 sed -i 's|-L[^ ]*/third_party/duckdb/build/release/src|-L../../third_party/duckdb/build/release/src -install_name @rpath/libduckdb.dylib|g'
-    substituteInPlace third_party/duckdb/CMakeLists.txt --replace "-lz4" "-llz4"
-    echo 'SO_MAJOR_VERSION=1' >> Makefile.build
-    # Add a new file to export symbols on macOS
-    cat > rust_extensions/delta/src/lib_export.rs << 'EOF'
-    use std::ffi::CString;
-    use std::os::raw::c_char;
-    use cxx::{CxxString, CxxVector};
+  makeFlags = [
+    "PG_CONFIG=${postgresql}/bin/pg_config"
+  ];
 
-    // Directly re-export the original functions to ensure symbol availability
+  patchPhase = ''
+    # Handle the unused variables for both platforms
+        sed -i 's/static constexpr char s3_filename_prefix/static constexpr __attribute__((unused)) char s3_filename_prefix/' src/pgduckdb/utility/copy.cpp
+        sed -i 's/static constexpr char gcs_filename_prefix/static constexpr __attribute__((unused)) char gcs_filename_prefix/' src/pgduckdb/utility/copy.cpp
+        sed -i 's/static constexpr char r2_filename_prefix/static constexpr __attribute__((unused)) char r2_filename_prefix/' src/pgduckdb/utility/copy.cpp  '' + lib.optionalString (stdenv.isDarwin) ''
+        # Rust build modifications for macOS
+        sed -i '/cxx_build::bridge("src\/lib.rs")/c\    let mut build = cxx_build::bridge("src/lib.rs");\n    build.flag("-framework").flag("Security").flag("-framework").flag("CoreFoundation");' rust_extensions/delta/build.rs
+   
+        # Library suffix handling for macOS
+        sed -i 's|libduckdb\.so|libduckdb.dylib|g' Makefile Makefile.build
+   
+        # Library lookup modifications
+        find . -type f \( -name "Makefile" -o -name "Makefile.build" -o -name "*.cmake" -o -name "CMakeLists.txt" -o -name "*.make" \) -print0 | xargs -0 sed -i 's|-L[^ ]*/third_party/duckdb/build/release/src|-L../../third_party/duckdb/build/release/src -install_name @rpath/libduckdb.dylib|g'
+   
+        # Additional macOS configurations
+        substituteInPlace third_party/duckdb/CMakeLists.txt --replace "-lz4" "-llz4"
+        echo 'SO_MAJOR_VERSION=1' >> Makefile.build
+   
+        # Add macOS symbol exports for Rust
+    cat > rust_extensions/delta/src/lib_export.rs << 'EOF'
+    use std::os::raw::c_char;
+
     #[no_mangle]
     pub extern "C" fn delta_init() -> bool {
-        match super::DeltaInit() {
-            Ok(_) => true,
-            Err(_) => {
-                eprintln!("Delta initialization failed");
-                false
-            }
-        }
+        super::DeltaInit();
+        true
     }
 
     #[no_mangle]
@@ -109,10 +114,9 @@ stdenv.mkDerivation rec {
         options: *const c_char,
         column_names: *const *const c_char,
         column_types: *const *const c_char,
-        column_count: libc::c_int
+        column_count: i32
     ) -> bool {
-        // TODO: Implement proper conversion from C types to CxxString and CxxVector
-        false // Placeholder
+        false
     }
 
     #[no_mangle]
@@ -122,95 +126,138 @@ stdenv.mkDerivation rec {
         file_paths: *const *const c_char,
         file_sizes: *const i64,
         is_add_files: *const i8,
-        file_count: libc::c_int
+        file_count: i32
     ) -> bool {
-        // TODO: Implement proper conversion from C types to CxxString and CxxVector
-        false // Placeholder
+        false
     }
-          EOF
-          
-    # Add mod declaration to lib.rs
-    echo "mod lib_export;" >> rust_extensions/delta/src/lib.rs 
-    sed -i 's/-Werror//' Makefile 
-  '' + ''
-    # Modify copy.cpp to add __attribute__((unused)) to const variables
-    sed -i 's/static constexpr char s3_filename_prefix\[\]/static constexpr [[maybe_unused]] char s3_filename_prefix[]/' src/pgduckdb/utility/copy.cpp
-    sed -i 's/static constexpr char gcs_filename_prefix\[\]/static constexpr [[maybe_unused]] char gcs_filename_prefix[]/' src/pgduckdb/utility/copy.cpp
-    sed -i 's/static constexpr char r2_filename_prefix\[\]/static constexpr [[maybe_unused]] char r2_filename_prefix[]/' src/pgduckdb/utility/copy.cpp
+    EOF
+   
+        # Add mod declaration to lib.rs
+        echo "mod lib_export;" >> rust_extensions/delta/src/lib.rs 
   '';
 
   buildPhase = ''
-    set -x  
-    
-    export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
-    export HOME=$PWD/home
-    export CARGO_HOME=$HOME/cargo
-    export CC="${llvmPackages_16.clang}/bin/clang"
-    export CXX="${llvmPackages_16.clang}/bin/clang++"
-    mkdir -p "$CARGO_HOME"
-    
-    echo "=== Checking Cargo Build ==="
-    cargo build --release --manifest-path=rust_extensions/delta/Cargo.toml -vv
-    echo "=== End Cargo Build ==="
-    echo "=== List  ==="
-    ls -la rust_extensions/delta/target/release/
-    echo "=== End List ==="
-    sed -i 's/-Werror//' Makefile
-    
+        make -C third_party/duckdb release
+        echo "=== Checking DuckDB Library Location ==="
+        find third_party/duckdb -name "libduckdb*"
+        ls -l third_party/duckdb
+        echo "=== End DuckDB Library Check ==="
+        # Setup build environment
+        export SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
+        export HOME=$PWD/home
+        export CARGO_HOME=$HOME/cargo
+        export CC="${llvmPackages_16.clang}/bin/clang"
+        export CXX="${llvmPackages_16.clang}/bin/clang++"
+        mkdir -p "$CARGO_HOME"
+        
+        # Build Rust components first
+        export CMAKE_FLAGS="-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF \
+          -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF \
+          -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
+          -DENABLE_SANITIZER=FALSE \
+          -DENABLE_UBSAN=0 \
+          -DBUILD_SHELL=0 \
+          -DBUILD_UNITTESTS=0 \
+          -DCMAKE_BUILD_TYPE=Release"
+
+        cargo build --release --manifest-path=rust_extensions/delta/Cargo.toml 
+        echo "=== Checking Delta Library Location ==="
+        find rust_extensions/delta/target/release/ -name "libdelta*"
+        ls -l rust_extensions/delta/target/release/
+        echo "=== End Delta Library Check ==="
+        echo "=== find libduckdb* ==="
+        find . -name "libduckdb.so"
+        find . -name "libduckdb.dylib"
+        echo "=== End find libduckdb* ==="
+
+        mkdir -p $out/build/release
+        cp rust_extensions/delta/target/release/libdelta.a $out/build/release/
+        cp third_party/duckdb/build/release/src/libduckdb* $out/build/release/
+        echo "=== find libdelta.a ==="
+        find . -name "libdelta.a"
+        echo "=== End find libdelta.a ==="
+
     ${lib.optionalString (stdenv.isDarwin) ''
-      export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
-      export DLSUFFIX=".dylib"
+      # Darwin build command
+      make USE_PGXS=1 V=1 VERBOSE=1 \
+        BUILD_TYPE=release \
+        CMAKE_FLAGS="$CMAKE_FLAGS" \
+        PG_CONFIG=${postgresql}/bin/pg_config \
+        DLSUFFIX=".dylib" \
+        SHLIB_LINK="-L$out/build/release -L${postgresql}/lib -Wl,-undefined,dynamic_lookup -llz4 -lduckdb -ldelta -lstdc++ $(${lib.getDev postgresql}/bin/pg_config --libs)" \
+        PG_LIBS="$PG_LDFLAGS $FRAMEWORK_FLAGS" \
+        all
     ''}
     ${lib.optionalString (!stdenv.isDarwin) ''
-      export CXXFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CXXFLAGS"
+      make USE_PGXS=1 V=1 VERBOSE=1 \
+        BUILD_TYPE=release \
+        CMAKE_FLAGS="$CMAKE_FLAGS" \
+        -j$NIX_BUILD_CORES all
     ''}
-    export CFLAGS="-Wno-error=unused-const-variable -Wno-unused-const-variable $CFLAGS"
-    
-    ${lib.optionalString (stdenv.isDarwin) ''
-      # Bundle loader and C++ runtime flags
-      export PG_LDFLAGS="-bundle -bundle_loader ${postgresql}/bin/postgres -lc++ -lc++abi"
-      # Framework flags
-      export FRAMEWORK_FLAGS="-F${darwin.apple_sdk.frameworks.Security}/Library/Frameworks -F${darwin.apple_sdk.frameworks.CoreFoundation}/Library/Frameworks"
-    ''}
-
-    HOME="$HOME" \
-    CARGO_HOME="$CARGO_HOME" \
-    ${lib.optionalString (stdenv.isDarwin) ''
-      # First part of make to get Makefile.build copied
-      make BUILD_TYPE=release all
-      sed -i 's/\$(CXX) \$(CXXFLAGS)/\$(CXX) \$(CXXFLAGS) -Wno-error=unused-const-variable -Wno-unused-const-variable/' build/release/Makefile
-
-      # echo "=== Checking Delta Library ==="
-      # file rust_extensions/delta/target/release/libdelta.a || echo "No libdelta.a in rust_extensions"
-      # file build/release/libdelta.a || echo "No libdelta.a in build/release"
-      # nm rust_extensions/delta/target/release/libdelta.a || echo "No Delta symbols found"
-      # echo "=== End Delta Library Check ==="
-      
-      # Now patch the copied Makefile
-      cp rust_extensions/delta/target/release/libdelta.a build/release/
-      # The linker processes libraries in order from left to right. When it encounters an undefined symbol, it looks ahead to find a library defining that symbol
-      # Once processed, a library isn't revisited even if later libraries need its symbols
-      # in our case:
-      # pgduckdb_detoast.cpp.o needs LZ4_decompress_safe from lz4
-      # lake.cpp.o needs Delta* symbols from libdelta.a
-      # libdelta.a needs symbols from lz4 and duckdb
-      sed -i 's|SHLIB_LINK := -L. -Wl,-rpath,$(PG_LIB_DIR) -lduckdb -lstdc++|SHLIB_LINK := -llz4 -lduckdb ../../rust_extensions/delta/target/release/libdelta.a -lstdc++|' build/release/Makefile
-      # Continue with the build
-      make -C build/release V=1 VERBOSE=1 DLSUFFIX=".dylib" \
-      SHARED_LIBRARY_NAME=libduckdb.dylib \
-      SHARED_LIBRARY_SUFFIX=.dylib \
-      PG_LIBS="$PG_LDFLAGS $FRAMEWORK_FLAGS"
-    ''} \
-    ${lib.optionalString (!stdenv.isDarwin) ''
-      make release
-    ''} \
-    -j$NIX_BUILD_CORES PG_CONFIG="${postgresql}/bin/pg_config"
   '';
 
+  installPhase = ''
+    mkdir -p $out/lib
+    mkdir -p $out/share/postgresql/extension
+
+    # Debug: Show current directory and its contents
+    echo "=== Current directory ==="
+    pwd
+    ls -la
+    
+    # Debug: Find all .control files
+    echo "=== Finding .control files ==="
+    find . -name "*.control" -ls
+    
+    # Debug: Find all .sql files
+    echo "=== Finding .sql files ==="
+    find . -name "*.sql" -ls
+    
+    # Debug: Show sql directory contents if it exists
+    echo "=== SQL directory contents (if exists) ==="
+    ls -la sql 2>/dev/null || echo "sql directory not found"
+
+    # Copy libdelta.a
+    if [ -f "rust_extensions/delta/target/release/libdelta.a" ]; then
+      cp "rust_extensions/delta/target/release/libdelta.a" $out/lib/
+    else
+      echo "Error: libdelta.a not found at rust_extensions/delta/target/release/libdelta.a"
+      exit 1
+    fi
+
+    # Copy the final extension shared library
+    if [ -f "build/release/${pname}${stdenv.hostPlatform.extensions.sharedLibrary}" ]; then
+      cp "build/release/${pname}${stdenv.hostPlatform.extensions.sharedLibrary}" $out/lib/
+    else
+      echo "Error: Extension library not found at build/release/${pname}${stdenv.hostPlatform.extensions.sharedLibrary}"
+      exit 1
+    fi
+
+    # Check for SQL directory
+    if [ ! -d "sql" ]; then
+      echo "Error: sql directory not found"
+      exit 1
+    fi
+
+    # Check for control file
+    if [ ! -f "${pname}.control" ]; then
+      echo "Error: Control file not found at ${pname}.control"
+      exit 1
+    fi
+    cp "${pname}.control" $out/share/postgresql/extension/
+
+    # Check for SQL version files
+    SQL_FILES=$(ls sql/${pname}--*.sql 2>/dev/null || echo "")
+    if [ -z "$SQL_FILES" ]; then
+      echo "Error: No SQL version files found in sql directory"
+      exit 1
+    fi
+    cp sql/${pname}--*.sql $out/share/postgresql/extension/
+  '';
   meta = with lib; {
     description = "Mooncake: user-defined pipeline analytics in Postgres";
-    homepage    = "https://github.com/Mooncake-Labs/${pname}";
-    platforms   = postgresql.meta.platforms;
-    license     = licenses.postgresql;
+    homepage = "https://github.com/Mooncake-Labs/${pname}";
+    platforms = postgresql.meta.platforms;
+    license = licenses.postgresql;
   };
 }
