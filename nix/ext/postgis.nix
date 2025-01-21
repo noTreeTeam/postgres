@@ -35,6 +35,7 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ perl pkg-config ];
   dontDisableStatic = true;
 
+
   env.NIX_LDFLAGS = "-L${lib.getLib json_c}/lib";
 
   preConfigure = ''
@@ -63,7 +64,7 @@ postInstall = ''
   done
   # Add function definition and usage to tiger geocoder files
   for file in $out/share/postgresql/extension/postgis_tiger_geocoder*--${version}.sql; do
-    sed -i '/SELECT postgis_extension_AddToSearchPath('tiger');/a SELECT postgis_extension_AddToSearchPath('extensions');' "$file"
+      sed -i "/SELECT postgis_extension_AddToSearchPath('tiger');/a SELECT postgis_extension_AddToSearchPath('extensions');" "$file"
   done
   # Original topology patching
   for file in $out/share/postgresql/extension/postgis_topology*--${version}.sql; do
