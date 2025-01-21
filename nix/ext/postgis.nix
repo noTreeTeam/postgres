@@ -35,11 +35,6 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ perl pkg-config ];
   dontDisableStatic = true;
 
-  # Copy our SQL file into the source
-  postUnpack = ''
-    cp ${./tiger_search_path.sql} $sourceRoot/tiger_search_path.sql
-  '';
-
   env.NIX_LDFLAGS = "-L${lib.getLib json_c}/lib";
 
   preConfigure = ''
@@ -63,25 +58,17 @@ stdenv.mkDerivation rec {
 
 postInstall = ''
   rm $out/bin/postgres
-
   for prog in $out/bin/*; do # */
     ln -s $prog $prog-${version}
   done
-
-  # Add AddToSearchPath function to tiger_geocoder files
+  # Add function definition and usage to tiger geocoder files
   for file in $out/share/postgresql/extension/postgis_tiger_geocoder*--${version}.sql; do
-    # Insert the function near the start of the file
-    sed -i '/Copyright (C) 2010, 2011-2015 Regina Obe and Leo Hsu/r tiger_search_path.sql' "$file"
-    
-    # Add the call to AddToSearchPath just before the install_geocode_settings function
-    #sed -i '/CREATE FUNCTION install_geocode_settings()/i SELECT tiger.AddToSearchPath('"'"'extensions'"'"');' "$file"
+    sed -i '/SELECT postgis_extension_AddToSearchPath('tiger');/a SELECT postgis_extension_AddToSearchPath('extensions');' "$file"
   done
-
   # Original topology patching
   for file in $out/share/postgresql/extension/postgis_topology*--${version}.sql; do
     sed -i "/SELECT topology.AddToSearchPath('topology');/i SELECT topology.AddToSearchPath('extensions');" "$file"
   done
-
   mkdir -p $doc/share/doc/postgis
   mv doc/* $doc/share/doc/postgis/
 '';
