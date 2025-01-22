@@ -2,11 +2,7 @@
 
 stdenv.mkDerivation rec {
   pname = "vault";
-  version = "0.2.9";
-
-  patches = [
-    ./001-new-vault.patch
-  ];
+  version = "0.3.1";
 
   buildInputs = [ libsodium postgresql ];
 
