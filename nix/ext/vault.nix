@@ -10,7 +10,7 @@ stdenv.mkDerivation rec {
     owner = "supabase";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-kXTngBW4K6FkZM8HvJG2Jha6OQqbejhnk7tchxy031I=";
+    hash = "sha256-MC87bqgtynnDhmNZAu96jvfCpsGDCPB0g5TZfRQHd30=";
   };
 
   installPhase = ''
