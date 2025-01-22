@@ -4,7 +4,7 @@ Unmodified Postgres with some useful plugins. Our goal with this repo is not to 
 
 ## Primary Features
 - ✅ Postgres [15](https://www.postgresql.org/about/news/postgresql-15-released-2526/).
-- ✅ Ubuntu 20.04 (Focal Fossa).
+- ✅ Ubuntu 24.04 (noble Fossa).
 - ✅ [wal_level](https://www.postgresql.org/docs/current/runtime-config-wal.html) = logical and [max_replication_slots](https://www.postgresql.org/docs/current/runtime-config-replication.html) = 5. Ready for replication.
 - ✅ [Large Systems Extensions](https://github.com/aws/aws-graviton-getting-started#building-for-graviton-and-graviton2). Enabled for ARM images.
 

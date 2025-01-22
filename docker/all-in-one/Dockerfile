@@ -73,7 +73,7 @@ FROM envoyproxy/envoy:v${envoy_release} as envoy
 ####################
 FROM base as kong
 ARG kong_release
-ADD "https://packages.konghq.com/public/gateway-28/deb/ubuntu/pool/focal/main/k/ko/kong_${kong_release}/kong_${kong_release}_${TARGETARCH}.deb" \
+ADD "https://packages.konghq.com/public/gateway-28/deb/ubuntu/pool/noble/main/k/ko/kong_${kong_release}/kong_${kong_release}_${TARGETARCH}.deb" \
     /tmp/kong.deb
 
 ####################

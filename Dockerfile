@@ -42,7 +42,7 @@ ARG wal_g_release=2.0.1
 ####################
 # Setup Postgres PPA
 ####################
-FROM ubuntu:focal as ppa
+FROM ubuntu:noble as ppa
 # Redeclare args for use in subsequent stages
 ARG postgresql_major
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -55,7 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #  gpg --export --armor $NEW_POSTGRESQL_GPG_KEY > postgresql.gpg.key
 COPY postgresql.gpg.key /tmp/postgresql.gpg.key
 RUN apt-key add /tmp/postgresql.gpg.key && \
-    echo "deb https://apt-archive.postgresql.org/pub/repos/apt focal-pgdg-archive main" > /etc/apt/sources.list.d/pgdg.list
+    echo "deb https://apt-archive.postgresql.org/pub/repos/apt noble-pgdg-archive main" > /etc/apt/sources.list.d/pgdg.list
 
 ####################
 # Download pre-built postgres
@@ -64,7 +64,7 @@ FROM ppa as pg
 ARG postgresql_release
 # Download .deb packages
 RUN apt-get update && apt-get install -y --no-install-recommends --download-only \
-    postgresql-${postgresql_major}=${postgresql_release}-1.pgdg20.04+1 \
+    postgresql-${postgresql_major}=${postgresql_release}-1.pgdg24.04+1 \
     && rm -rf /var/lib/apt/lists/*
 RUN mv /var/cache/apt/archives/*.deb /tmp/
 
@@ -72,14 +72,14 @@ FROM ppa as pg-dev
 ARG postgresql_release
 # Download .deb packages
 RUN apt-get update && apt-get install -y --no-install-recommends --download-only \
-    postgresql-server-dev-${postgresql_major}=${postgresql_release}-1.pgdg20.04+1 \
+    postgresql-server-dev-${postgresql_major}=${postgresql_release}-1.pgdg24.04+1 \
     && rm -rf /var/lib/apt/lists/*
 RUN mv /var/cache/apt/archives/*.deb /tmp/
 
 ####################
 # Install postgres
 ####################
-FROM ubuntu:focal as base
+FROM ubuntu:noble as base
 # Redeclare args for use in subsequent stages
 ARG TARGETARCH
 ARG postgresql_major
@@ -188,7 +188,7 @@ FROM ppa as postgis
 ARG postgis_release
 # Download pre-built packages
 RUN apt-get update && apt-get install -y --no-install-recommends --download-only \
-    postgresql-${postgresql_major}-postgis-3=${postgis_release}+dfsg-1.pgdg20.04+1 \
+    postgresql-${postgresql_major}-postgis-3=${postgis_release}+dfsg-1.pgdg24.04+1 \
     && rm -rf /var/lib/apt/lists/*
 RUN mv /var/cache/apt/archives/*.deb /tmp/
 
@@ -220,7 +220,7 @@ FROM ppa as pgrouting
 ARG pgrouting_release
 # Download pre-built packages
 RUN apt-get update && apt-get install -y --no-install-recommends --download-only \
-    postgresql-${postgresql_major}-pgrouting=${pgrouting_release}-1.pgdg20.04+1 \
+    postgresql-${postgresql_major}-pgrouting=${pgrouting_release}-1.pgdg24.04+1 \
     && rm -rf /var/lib/apt/lists/*
 RUN mv /var/cache/apt/archives/*.deb /tmp/
 
@@ -695,7 +695,7 @@ FROM base as pgroonga
 # Latest available is 3.0.3
 ARG pgroonga_release
 # Download pre-built packages
-ADD "https://packages.groonga.org/ubuntu/groonga-apt-source-latest-focal.deb" /tmp/source.deb
+ADD "https://packages.groonga.org/ubuntu/groonga-apt-source-latest-noble.deb" /tmp/source.deb
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     /tmp/source.deb \
@@ -857,13 +857,13 @@ RUN /tmp/download_supautils.sh && rm /tmp/download_supautils.sh
 ####################
 FROM base as walg
 ARG wal_g_release
-# ADD "https://github.com/wal-g/wal-g/releases/download/v${wal_g_release}/wal-g-pg-ubuntu-20.04-${TARGETARCH}.tar.gz" /tmp/wal-g.tar.gz
+# ADD "https://github.com/wal-g/wal-g/releases/download/v${wal_g_release}/wal-g-pg-ubuntu-24.04-${TARGETARCH}.tar.gz" /tmp/wal-g.tar.gz
 RUN arch=$([ "$TARGETARCH" = "arm64" ] && echo "aarch64" || echo "$TARGETARCH") && \
     apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -kL "https://github.com/wal-g/wal-g/releases/download/v${wal_g_release}/wal-g-pg-ubuntu-20.04-${arch}.tar.gz" -o /tmp/wal-g.tar.gz && \
+    curl -kL "https://github.com/wal-g/wal-g/releases/download/v${wal_g_release}/wal-g-pg-ubuntu-24.04-${arch}.tar.gz" -o /tmp/wal-g.tar.gz && \
     tar -xvf /tmp/wal-g.tar.gz -C /tmp && \
     rm -rf /tmp/wal-g.tar.gz && \
-    mv /tmp/wal-g-pg-ubuntu*20.04-$arch /tmp/wal-g
+    mv /tmp/wal-g-pg-ubuntu*24.04-$arch /tmp/wal-g
 
 ####################
 # Collect extension packages
@@ -903,7 +903,7 @@ COPY --from=supautils /tmp/*.deb /tmp/
 ####################
 # Download gosu for easy step-down from root
 ####################
-FROM ubuntu:focal as gosu
+FROM ubuntu:noble as gosu
 ARG TARGETARCH
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
