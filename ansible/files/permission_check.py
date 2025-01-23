@@ -152,6 +152,11 @@ def check_nixbld_users():
 
     print("All nixbld users are in the 'nixbld' group.")
 
+<<<<<<< HEAD
+=======
+# Define usernames for which you want to compare results
+usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
+>>>>>>> b4a0e8c8 (chore: in 24.04 legacy gnats no longer present in  ubuntu)
 
 def main():
     parser = argparse.ArgumentParser(
