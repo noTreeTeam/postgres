@@ -70,9 +70,6 @@ expected_results = {
     "irc": [
         {"groupname":"irc","username":"irc"}
     ],
-    "gnats": [
-        {"groupname":"gnats","username":"gnats"}
-    ],
     "nobody": [
         {"groupname":"nogroup","username":"nobody"}
     ],
@@ -191,7 +188,7 @@ def check_nixbld_users():
     print("All nixbld users are in the 'nixbld' group.")
 
 # Define usernames for which you want to compare results
-usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","gnats","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
+usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
 
 # Iterate over usernames, run the query, and compare results
 for username in usernames:
