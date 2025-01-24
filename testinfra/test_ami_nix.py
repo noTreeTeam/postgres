@@ -292,6 +292,9 @@ runcmd:
     )
 
     def is_healthy(host, instance_ip, ssh_identity_file) -> bool:
+        postgres_logs = host.run("journalctl -u postgresql")
+        logger.warning(f"PostgreSQL logs: {postgres_logs.stdout}")
+
         health_checks = [
             (
                 "postgres",
