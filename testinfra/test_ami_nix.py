@@ -292,8 +292,17 @@ runcmd:
     )
 
     def is_healthy(host, instance_ip, ssh_identity_file) -> bool:
-        postgres_logs = host.run("journalctl -u postgresql")
-        logger.warning(f"PostgreSQL logs: {postgres_logs.stdout}")
+        status_checks = [
+            "dpkg -l | grep postgresql",
+            "systemctl status postgresql",
+            "ls -la /var/lib/postgresql",
+            "ps aux | grep postgres"
+        ]
+    
+        for check in status_checks:
+            result = host.run(check)
+            logger.warning(f"{check} output: {result.stdout}")
+
 
         health_checks = [
             (
