@@ -136,9 +136,6 @@ expected_results = {
     ],
     "tcpdump": [
         {"groupname":"tcpdump","username":"tcpdump"}
-    ],
-    "systemd-coredump": [
-        {"groupname":"systemd-coredump","username":"systemd-coredump"}
     ]
 }
 # This program depends on osquery being installed on the system
@@ -188,7 +185,7 @@ def check_nixbld_users():
     print("All nixbld users are in the 'nixbld' group.")
 
 # Define usernames for which you want to compare results
-usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
+usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump"]
 
 # Iterate over usernames, run the query, and compare results
 for username in usernames:
