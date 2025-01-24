@@ -91,9 +91,6 @@ expected_results = {
     ],
     "postgrest": [{"groupname": "postgrest", "username": "postgrest"}],
     "tcpdump": [{"groupname": "tcpdump", "username": "tcpdump"}],
-    "systemd-coredump": [
-        {"groupname": "systemd-coredump", "username": "systemd-coredump"}
-    ],
 }
 
 
@@ -155,8 +152,12 @@ def check_nixbld_users():
 <<<<<<< HEAD
 =======
 # Define usernames for which you want to compare results
+<<<<<<< HEAD
 usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
 >>>>>>> b4a0e8c8 (chore: in 24.04 legacy gnats no longer present in  ubuntu)
+=======
+usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump"]
+>>>>>>> ec20fb3b (chore: permission check and restore kong original version)
 
 def main():
     parser = argparse.ArgumentParser(
