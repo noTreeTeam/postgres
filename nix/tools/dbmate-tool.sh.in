@@ -54,7 +54,7 @@ print_help() {
     echo "Usage: nix run .#dbmate-tool -- [options]"
     echo
     echo "Options:"
-    echo "  -v, --version [15|16|orioledb-17|all]  Specify the PostgreSQL version to use (required defaults to --version all)"
+    echo "  -v, --version [15|17|orioledb-17|all]  Specify the PostgreSQL version to use (required defaults to --version all)"
     echo "  -p, --port PORT                    Specify the port number to use (default: 5435)"
     echo "  -h, --help                         Show this help message"
     echo
