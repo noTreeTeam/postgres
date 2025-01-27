@@ -14,7 +14,7 @@ print_help() {
     echo "Usage: nix run .#start-client -- [options]"
     echo
     echo "Options:"
-    echo "  -v, --version [15|16|orioledb-16]  Specify the PostgreSQL version to use (required)"
+    echo "  -v, --version [15|17|orioledb-17]  Specify the PostgreSQL version to use (required)"
     echo "  -f, --file FILE                    Provide a custom migration script"
     echo "  -u, --user USER                    Specify the user/role to use (default: postgres)"
     echo "  -h, --help                         Show this help message"
@@ -29,9 +29,9 @@ print_help() {
     echo "Examples:"
     echo "  nix run .#start-client"
     echo "  nix run .#start-client -- --version 15"
-    echo "  nix run .#start-client -- --version 16 --file custom_migration.sql"
-    echo "  nix run .#start-client -- --version 16 --port 5433"
-    echo "  nix run .#start-client -- --version 16 --user supabase_admin"
+    echo "  nix run .#start-client -- --version 17 --file custom_migration.sql"
+    echo "  nix run .#start-client -- --version 17 --port 5433"
+    echo "  nix run .#start-client -- --version 17 --user supabase_admin"
 }
 
 # Parse arguments
@@ -97,16 +97,16 @@ if [ "$PSQL_VERSION" == "15" ]; then
     echo "Starting client for PSQL 15"
     PSQL15=@PSQL15_BINDIR@
     BINDIR="$PSQL15"
-elif [ "$PSQL_VERSION" == "16" ]; then
-    echo "Starting client for PSQL 16"
-    PSQL16=@PSQL16_BINDIR@
-    BINDIR="$PSQL16"
+elif [ "$PSQL_VERSION" == "17" ]; then
+    echo "Starting client for PSQL 17"
+    PSQL17=@PSQL17_BINDIR@
+    BINDIR="$PSQL17"
 elif [ "$PSQL_VERSION" == "orioledb-17" ]; then
     echo "Starting client for PSQL ORIOLEDB 17"
-    PSQLORIOLEDB16=@PSQLORIOLEDB17_BINDIR@
-    BINDIR="$PSQLORIOLEDB16"
+    PSQLORIOLEDB17=@PSQLORIOLEDB17_BINDIR@
+    BINDIR="$PSQLORIOLEDB17"
 else
-    echo "Please provide a valid Postgres version (15, 16, or orioledb-16)"
+    echo "Please provide a valid Postgres version (15, 17, or orioledb-17)"
     exit 1
 fi
 
