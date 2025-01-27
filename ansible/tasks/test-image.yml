@@ -62,13 +62,14 @@
   block:
     - name: Check if psql_version is psql_orioledb-xx
       set_fact:
-        is_psql_oriole: "{{ psql_version in ['psql_orioledb-16', 'psql_orioledb-17'] }}"
+        is_psql_oriole: "{{ psql_version in ['psql_orioledb-17'] }}"
+        is_psql_17: "{{ psql_version in ['psql_17'] }}"
 
     - name: Remove specified extensions from SQL file
       ansible.builtin.command:
         cmd: >
           sed -i '/\\ir.*\(timescaledb\|postgis\|pgrouting\|plv8\).*\.sql/d' /tmp/migrations/tests/extensions/test.sql
-      when: is_psql_oriole
+      when: is_psql_oriole or is_psql_17
       become: yes
 
     - name: Remove specified extension files from extensions directory
@@ -77,17 +78,15 @@
         patterns: 
           - '*timescaledb*.sql'
           - '*plv8*.sql'
-          - '*postgis*.sql'
-          - '*pgrouting*.sql'
       register: files_to_remove
-      when: is_psql_oriole
+      when: is_psql_oriole or is_psql_17
 
     - name: Delete matched extension files
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
       loop: "{{ files_to_remove.files }}"
-      when: is_psql_oriole
+      when: is_psql_oriole or is_psql_17
       become: yes
 
 - name: Run Unit tests (with filename unit-test-*) on Postgres Database
