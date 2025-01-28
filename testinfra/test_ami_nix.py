@@ -295,12 +295,30 @@ runcmd:
     )
 
     def is_healthy(host, instance_ip, ssh_identity_file) -> bool:
-        status_checks = [
-            "dpkg -l | grep postgresql",
-            "systemctl status postgresql",
-            "ls -la /var/lib/postgresql",
-            "ps aux | grep postgres"
+        postgres_diagnostics = [
+            "sudo tail -n 50 /var/log/postgresql/postgresql-*.log",  # Get recent PostgreSQL logs
+            "sudo -u postgres /usr/bin/pg_isready -U postgres -v",   # Verbose pg_isready
+            "sudo systemctl status postgresql",                      # Get service status
+            "sudo journalctl -u postgresql --no-pager -n 50",       # Get journal logs
+            "ps aux | grep postgres",                               # Check running processes
+            "sudo ls -la /var/lib/postgresql/*/main/",              # Check data directory permissions
+            "sudo cat /var/lib/postgresql/*/main/postmaster.pid",   # Check if PID file exists
+            "sudo -u postgres psql -c 'SELECT version();' || true"  # Try to connect and get version
         ]
+
+        logger.warning("Running PostgreSQL diagnostic checks...")
+        for check in postgres_diagnostics:
+            try:
+                result = host.run(check)
+                logger.warning(f"\n=== {check} ===\nReturn code: {result.rc}\nOutput:\n{result.stdout}\nErrors:\n{result.stderr}")
+            except Exception as e:
+                logger.warning(f"Failed to run {check}: {str(e)}")
+            status_checks = [
+                "dpkg -l | grep postgresql",
+                "systemctl status postgresql",
+                "ls -la /var/lib/postgresql",
+                "ps aux | grep postgres"
+            ]
     
         for check in status_checks:
             result = host.run(check)
