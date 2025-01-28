@@ -215,6 +215,7 @@ migrate_version() {
     # Wait for PostgreSQL to be ready to accept connections
     if ! wait_for_postgres; then
         echo "Failed to connect to PostgreSQL server"
+        cleanup
         exit 1
     fi
     
