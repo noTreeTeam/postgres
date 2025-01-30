@@ -8,8 +8,8 @@ postgres_major:
 
 # Full version strings for each major version
 postgres_release:
-  postgresorioledb-17: "17.0.1.022-orioledb-staging-1"
-  postgres15: "15.8.1.032-staging-1"
+  postgresorioledb-17: "17.0.1.022-orioledb-pgroonga-1"
+  postgres15: "15.8.1.032-pgroonga-1"
 
 # Non Postgres Extensions
 pgbouncer_release: "1.19.0"
