@@ -456,7 +456,10 @@ begin
   foreach obj in array functions
   loop
     if obj->>'owner' = 'postgres' then
-      execute(format('alter routine %s(%s) owner to postgres;', (obj->>'oid')::regproc, pg_get_function_identity_arguments((obj->>'oid')::regproc)));
+      execute(format('alter %s %s(%s) owner to postgres;'
+                     , case when obj->>'kind' = 'p' then 'procedure' else 'function' end
+                     , (obj->>'oid')::regproc
+                     , pg_get_function_identity_arguments((obj->>'oid')::regproc)));
     end if;
     for rec in
       select grantor, grantee, privilege_type, is_grantable
@@ -540,6 +543,16 @@ end
 $$;
 
 alter database postgres connection limit -1;
+
+-- #incident-2024-09-12-project-upgrades-are-temporarily-disabled
+do $$
+begin
+  if exists (select from pg_authid where rolname = 'pg_read_all_data') then
+    execute('grant pg_read_all_data to postgres');
+  end if;
+end
+$$;
+grant pg_signal_backend to postgres;
 
 set session authorization supabase_admin;
 drop role supabase_tmp;

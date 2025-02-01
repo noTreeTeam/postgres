@@ -11,7 +11,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pg_repack";
-  version = "1.5.0";
+  version = "1.5.2";
 
   buildInputs = postgresql.buildInputs ++ [ postgresql ];
 
@@ -19,7 +19,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "reorg";
     repo = "pg_repack";
     rev = "ver_${finalAttrs.version}";
-    hash = "sha256-do80phyMxwcRIkYyUt9z02z7byNQhK+pbSaCUmzG+4c=";
+    hash = "sha256-wfjiLkx+S3zVrAynisX1GdazueVJ3EOwQEPcgUQt7eA=";
   };
 
   installPhase = ''
