@@ -36,7 +36,8 @@ callbacks_enabled = timer, profile_tasks, profile_roles
 EOF
 	# Run Ansible playbook
 	export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/mnt/tmp
-	ansible-playbook ./ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}'
+	ansible-playbook ./ansible/playbook.yml --extra-vars '{"nixpkg_mode": true, "debpkg_mode": false, "stage2_nix": false}' \
+            --extra-vars "psql_version=psql_${POSTGRES_MAJOR_VERSION}"
 }
 
 function setup_postgesql_env {
@@ -94,7 +95,8 @@ EOF
     export ANSIBLE_LOG_PATH=/tmp/ansible.log && export ANSIBLE_REMOTE_TEMP=/tmp
     ansible-playbook ./ansible/playbook.yml \
         --extra-vars '{"nixpkg_mode": false, "stage2_nix": true, "debpkg_mode": false, "qemu_mode": true}' \
-        --extra-vars "git_commit_sha=${GIT_SHA}"
+        --extra-vars "git_commit_sha=${GIT_SHA}" \
+        --extra-vars "psql_version=psql_${POSTGRES_MAJOR_VERSION}"
 }
 
 function clean_system {
