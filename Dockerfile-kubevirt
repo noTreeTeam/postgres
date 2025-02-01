@@ -1,2 +1,0 @@
-FROM scratch
-ADD --chown=107:107 output-cloudimg/packer-cloudimg /disk/focal.qcow2
