@@ -21,6 +21,11 @@ variable "postgres-version" {
   default = ""
 }
 
+variable "postgres-major-version" {
+  type = string
+  default = ""
+}
+
 variable "git-head-version" {
   type = string
   default = "unknown"
@@ -63,7 +68,7 @@ build {
 
 source "qemu" "cloudimg" {
   boot_wait      = "2s"
-  cpus           = 12
+  cpus           = 8
   disk_image     = true
   disk_size      = "15G"
   format         = "qcow2"
@@ -71,10 +76,10 @@ source "qemu" "cloudimg" {
   http_directory = "http"
   iso_checksum   = "file:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS"
   iso_url        = "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-arm64.img"
-  memory         = 20000
+  memory         = 40000
   qemu_binary    = "qemu-system-aarch64"
   qemuargs = [
-    ["-machine", "virt"],
+    ["-machine", "virt,gic-version=3"],
     ["-cpu", "host"],
     ["-device", "virtio-gpu-pci"],
     ["-drive", "if=pflash,format=raw,id=ovmf_code,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd"],
@@ -124,9 +129,9 @@ build {
 
   provisioner "shell" {
     environment_vars = [
-      "POSTGRES_MAJOR_VERSION=${var.postgres_major_version}"
+      "POSTGRES_MAJOR_VERSION=${var.postgres-major-version}",
       "POSTGRES_SUPABASE_VERSION=${var.postgres-version}",
-      "GIT_SHA=${var.git_sha}",
+      "GIT_SHA=${var.git_sha}"
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/qemu-bootstrap-nix.sh"
