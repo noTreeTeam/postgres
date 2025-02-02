@@ -124,9 +124,9 @@ build {
 
   provisioner "shell" {
     environment_vars = [
+      "POSTGRES_MAJOR_VERSION=${var.postgres_major_version}"
       "POSTGRES_SUPABASE_VERSION=${var.postgres-version}",
       "GIT_SHA=${var.git_sha}",
-      "POSTGRES_MAJOR_VERSION=15" # TODO (darora): pass this in from vars
     ]
     use_env_var_file = true
     script = "ebssurrogate/scripts/qemu-bootstrap-nix.sh"
