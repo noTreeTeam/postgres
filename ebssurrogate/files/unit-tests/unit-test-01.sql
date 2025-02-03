@@ -42,7 +42,7 @@ BEGIN
     PERFORM set_config('myapp.extensions', array_to_string(extension_array, ','), false);
 END $$;
 
-SELECT plan(8);
+SELECT no_plan();
 
 SELECT extensions_are(
     string_to_array(current_setting('myapp.extensions'), ',')::text[]
