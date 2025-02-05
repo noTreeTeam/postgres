@@ -80,9 +80,14 @@ Additionally, [supabase/postgres](https://github.com/supabase/postgres/blob/deve
 
 ```shell
 # Start the database server
-docker-compose up
+cd docker
+docker compose up
+```
 
+Then
+```shell
 # create a new migration
+cd migrations
 dbmate new '<some message>'
 ```
 
