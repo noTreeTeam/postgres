@@ -311,11 +311,3 @@
     - 'export LC_CTYPE="en_US.UTF-8"'
   become: yes
   when: nixpkg_mode
-
-- name: Postgres - bump up ulimit
-  community.general.pam_limits:
-    domain: postgres
-    limit_item: nofile
-    limit_type: soft
-    value: 4096
-  when: debpkg_mode or nixpkg_mode
