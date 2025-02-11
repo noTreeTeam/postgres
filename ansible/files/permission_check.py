@@ -40,7 +40,6 @@ expected_results = {
     "backup": [{"groupname": "backup", "username": "backup"}],
     "list": [{"groupname": "list", "username": "list"}],
     "irc": [{"groupname": "irc", "username": "irc"}],
-    "gnats": [{"groupname": "gnats", "username": "gnats"}],
     "nobody": [{"groupname": "nogroup", "username": "nobody"}],
     "systemd-network": [
         {"groupname": "systemd-network", "username": "systemd-network"}
@@ -149,15 +148,7 @@ def check_nixbld_users():
 
     print("All nixbld users are in the 'nixbld' group.")
 
-<<<<<<< HEAD
-=======
-# Define usernames for which you want to compare results
-<<<<<<< HEAD
-usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump","systemd-coredump"]
->>>>>>> b4a0e8c8 (chore: in 24.04 legacy gnats no longer present in  ubuntu)
-=======
 usernames = ["postgres", "ubuntu", "root", "daemon", "bin", "sys", "sync", "games","man","lp","mail","news","uucp","proxy","www-data","backup","list","irc","nobody","systemd-network","systemd-resolve","systemd-timesync","messagebus","ec2-instance-connect","sshd","wal-g","pgbouncer","gotrue","envoy","kong","nginx","vector","adminapi","postgrest","tcpdump"]
->>>>>>> ec20fb3b (chore: permission check and restore kong original version)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -193,7 +184,6 @@ def main():
         "backup",
         "list",
         "irc",
-        "gnats",
         "nobody",
         "systemd-network",
         "systemd-resolve",
@@ -210,7 +200,6 @@ def main():
         "adminapi",
         "postgrest",
         "tcpdump",
-        "systemd-coredump",
     ]
     if not qemu_artifact:
         usernames.append("ec2-instance-connect")
