@@ -40,7 +40,6 @@ expected_results = {
     "backup": [{"groupname": "backup", "username": "backup"}],
     "list": [{"groupname": "list", "username": "list"}],
     "irc": [{"groupname": "irc", "username": "irc"}],
-    "gnats": [{"groupname": "gnats", "username": "gnats"}],
     "nobody": [{"groupname": "nogroup", "username": "nobody"}],
     "systemd-network": [
         {"groupname": "systemd-network", "username": "systemd-network"}
@@ -216,7 +215,6 @@ def main():
         "backup",
         "list",
         "irc",
-        "gnats",
         "nobody",
         "systemd-network",
         "systemd-resolve",
@@ -233,7 +231,6 @@ def main():
         "adminapi",
         "postgrest",
         "tcpdump",
-        "systemd-coredump",
     ]
     if not qemu_artifact:
         usernames.append("ec2-instance-connect")
