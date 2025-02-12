@@ -66,6 +66,7 @@ stop_postgres() {
 trap 'stop_postgres' SIGINT SIGTERM
 
 # Parse arguments
+# Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --skip-migrations)
@@ -106,15 +107,6 @@ while [[ "$#" -gt 0 ]]; do
         -h|--help)
             print_help
             exit 0
-            ;;
-        --datdir)
-            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                DATDIR="$2"
-                shift 2
-            else
-                echo "Error: --datadir requires a directory path"
-                exit 1
-            fi
             ;;
         *)
             if [[ "$1" =~ ^- ]]; then
@@ -173,9 +165,7 @@ STAT_EXTENSION_SQL=@STAT_EXTENSION_SQL@
 MECAB_LIB=@MECAB_LIB@
 
 # Setup directories and locale settings
-if [[ -z "$DATDIR" ]]; then
-    DATDIR=$(mktemp -d)
-fi
+DATDIR=$(mktemp -d)
 LOCALE_ARCHIVE=@LOCALES@
 CURRENT_SYSTEM=@CURRENT_SYSTEM@
 
