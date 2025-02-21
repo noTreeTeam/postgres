@@ -5,15 +5,17 @@ DO $$
 DECLARE
     extension_array text[];
     orioledb_available boolean;
-    pg_version integer;
+    has_pgjwt boolean;
 BEGIN
-    -- Get PostgreSQL version (as integer, e.g., 15 for PostgreSQL 15.x)
-    SELECT current_setting('server_version_num')::integer / 10000 INTO pg_version;
-    
     -- Check if orioledb is available
     SELECT EXISTS (
         SELECT 1 FROM pg_available_extensions WHERE name = 'orioledb'
     ) INTO orioledb_available;
+    
+    -- Check if pgjwt is already installed
+    SELECT EXISTS (
+        SELECT 1 FROM pg_extension WHERE extname = 'pgjwt'
+    ) INTO has_pgjwt;
 
     -- Base extensions list
     extension_array := ARRAY[
@@ -27,12 +29,12 @@ BEGIN
         'supabase_vault'
     ];
     
-    -- Add pgjwt if PostgreSQL version is 15 or higher
-    IF pg_version >= 15 THEN
+    -- Add pgjwt if it's actually installed
+    IF has_pgjwt THEN
         extension_array := array_append(extension_array, 'pgjwt');
     END IF;
     
-    -- Add orioledb if available
+    -- Add orioledb if available and installed
     IF orioledb_available THEN
         CREATE EXTENSION IF NOT EXISTS orioledb;
         extension_array := array_append(extension_array, 'orioledb');
