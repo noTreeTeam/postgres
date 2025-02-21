@@ -4,41 +4,19 @@ select
     secret    := 'secret',
     algorithm := 'HS256'
   );
-ERROR:  function public.hmac(text, text, text) does not exist
-LINE 9: SELECT public.url_encode(public.hmac(signables, secret, alg....
-                                 ^
-HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
-QUERY:  
-WITH
-  alg AS (
-    SELECT CASE
-      WHEN algorithm = 'HS256' THEN 'sha256'
-      WHEN algorithm = 'HS384' THEN 'sha384'
-      WHEN algorithm = 'HS512' THEN 'sha512'
-      ELSE '' END AS id)  -- hmac throws error
-SELECT public.url_encode(public.hmac(signables, secret, alg.id)) FROM alg;
+                                                                            sign                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.XbPfbIHMI6arZ3Y922BhjWgQzWXcXNrz0ogtVhfEd2o
+(1 row)
 
-CONTEXT:  SQL function "algorithm_sign" during inlining
-SQL function "sign" during startup
 select
   verify(
     token := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiRm9vIn0.Q8hKjuadCEhnCPuqIj9bfLhTh_9QSxshTRsA5Aq4IuM',
     secret    := 'secret',
     algorithm := 'HS256'
   );
-ERROR:  function public.hmac(text, text, text) does not exist
-LINE 9: SELECT public.url_encode(public.hmac(signables, secret, alg....
-                                 ^
-HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
-QUERY:  
-WITH
-  alg AS (
-    SELECT CASE
-      WHEN algorithm = 'HS256' THEN 'sha256'
-      WHEN algorithm = 'HS384' THEN 'sha384'
-      WHEN algorithm = 'HS512' THEN 'sha512'
-      ELSE '' END AS id)  -- hmac throws error
-SELECT public.url_encode(public.hmac(signables, secret, alg.id)) FROM alg;
+                             verify                             
+----------------------------------------------------------------
+ ("{""alg"":""HS256"",""typ"":""JWT""}","{""name"":""Foo""}",t)
+(1 row)
 
-CONTEXT:  SQL function "algorithm_sign" during inlining
-SQL function "verify" during startup
