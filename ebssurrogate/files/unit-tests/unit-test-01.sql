@@ -21,7 +21,6 @@ BEGIN
             'pgtap',
             'pg_graphql',
             'pgcrypto',
-            'pgjwt',
             'uuid-ossp',
             'supabase_vault',
             'orioledb'
@@ -34,7 +33,6 @@ BEGIN
             'pgtap',
             'pg_graphql',
             'pgcrypto',
-            'pgjwt',
             'uuid-ossp',
             'supabase_vault'
         ];
