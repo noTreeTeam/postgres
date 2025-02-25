@@ -155,8 +155,7 @@
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
-        getPostgresqlPackage = version:
-          pkgs.postgresql."postgresql_${version}";
+
         # Create a 'receipt' file for a given postgresql package. This is a way
         # of adding a bit of metadata to the package, which can be used by other
         # tools to inspect what the contents of the install are: the PSQL
@@ -193,9 +192,50 @@
           };
         };
 
+        # Define our PostgreSQL packages
+        postgresqlPackages = let
+          # Helper function to get the appropriate libxml2 for a version
+          # 15.1 needs an older version of libxml otherwise we can use latest in our
+          # version of nixpkgs
+          getLibxml2 = version: if version == "15-1"
+            then pkgs.libxml2.overrideAttrs (oldAttrs: {
+              version = "2.10.4";
+              src = pkgs.fetchurl {
+                url = "https://download.gnome.org/sources/libxml2/2.10/libxml2-2.10.4.tar.xz";
+                sha256 = "sha256-7QyRxYRQCPGTZznk7uIDVTHByUdCxlQfRO5m2IWUjUU=";
+              };
+            })
+            else pkgs.libxml2;
+        in {
+          "15-1" = pkgs.callPackage ./nix/postgresql/15-1.nix {
+            inherit (pkgs) lib stdenv fetchurl makeWrapper buildEnv newScope;
+            self = pkgs;
+            jitSupport = pkgs.stdenv.hostPlatform.isx86_64;
+            libxml2 = getLibxml2 "15-1";
+          };
+          "15-6" = pkgs.callPackage ./nix/postgresql/15-6.nix {
+            inherit (pkgs) lib stdenv fetchurl makeWrapper buildEnv newScope;
+            self = pkgs;
+            jitSupport = pkgs.stdenv.hostPlatform.isx86_64;
+            libxml2 = getLibxml2 "15-6";
+          };
+          "15-8" = pkgs.callPackage ./nix/postgresql/15-8.nix {
+            inherit (pkgs) lib stdenv fetchurl makeWrapper buildEnv newScope;
+            self = pkgs;
+            jitSupport = pkgs.stdenv.hostPlatform.isx86_64;
+            libxml2 = getLibxml2 "15-8";
+          };
+          "orioledb-17" = pkgs.callPackage ./nix/postgresql/orioledb-17.nix {
+            inherit (pkgs) lib stdenv fetchurl makeWrapper buildEnv newScope;
+            self = pkgs;
+            jitSupport = pkgs.stdenv.hostPlatform.isx86_64;
+            libxml2 = getLibxml2 "orioledb-17";
+          };
+        };
+
         makeOurPostgresPkgs = version:
           let 
-            postgresql = getPostgresqlPackage version;
+            postgresql = postgresqlPackages.${version};  # Use our own packages
             extensionsToUse = if (builtins.elem version ["orioledb-17"])
               then orioledbExtensions
               else ourExtensions;
@@ -221,7 +261,7 @@
         # basis for building extensions, etc.
         makePostgresBin = version:
           let
-            postgresql = getPostgresqlPackage version;
+            postgresql = postgresqlPackages.${version};
             upstreamExts = map
               (ext: {
                 name = postgresql.pkgs."${ext}".pname;
@@ -371,14 +411,16 @@
           # Function to get the PostgreSQL version from the attribute name
           getVersion = name: 
             let
-              match = builtins.match "psql_([0-9]+)" name;
+              match = builtins.match "psql_([0-9.-]+)" name;  # Updated regex to capture full version
             in
             if match == null then null else builtins.head match;
 
           # Define the available PostgreSQL versions
           postgresVersions = {
-            psql_15 = makePostgres "15";
-            psql_orioledb-17 = makePostgres "orioledb-17" ;
+            psql_15-1 = makePostgres "15-1";
+            psql_15-6 = makePostgres "15-6";
+            psql_15-8 = makePostgres "15-8";
+            psql_orioledb-17 = makePostgres "orioledb-17";
           };
 
           # Find the active PostgreSQL version
@@ -387,13 +429,21 @@
           # Function to create the pg_regress package
           makePgRegress = version:
             let
-              postgresqlPackage = pkgs."postgresql_${version}";
+              # Map major version to latest minor version
+              versionMap = {
+                "15" = "15-8";  # Use latest 15.x version
+                "17" = "orioledb-17";
+              };
+              actualVersion = versionMap.${version} or version;
+              postgresqlPackage = postgresqlPackages.${actualVersion};
             in
               pkgs.callPackage ./nix/ext/pg_regress.nix { 
                 postgresql = postgresqlPackage;
               };
-          postgresql_15 = getPostgresqlPackage "15";
-          postgresql_orioledb-17 = getPostgresqlPackage "orioledb-17";
+          postgresql_15-1 = postgresqlPackages."15-1";
+          postgresql_15-6 = postgresqlPackages."15-6";
+          postgresql_15-8 = postgresqlPackages."15-8";
+          postgresql_orioledb-17 = postgresqlPackages."orioledb-17";
         in 
         postgresVersions // {
           supabase-groonga = supabase-groonga;
@@ -401,57 +451,17 @@
           cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
           cargo-pgrx_0_12_9 = pkgs.cargo-pgrx.cargo-pgrx_0_12_9;
           # PostgreSQL versions.
-          psql_15 = postgresVersions.psql_15;
+          psql_15-1 = postgresVersions.psql_15-1;
+          psql_15-6 = postgresVersions.psql_15-6;
+          psql_15-8 = postgresVersions.psql_15-8;
           psql_orioledb-17 = postgresVersions.psql_orioledb-17;
           sfcgal = sfcgal;
           pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
-          inherit postgresql_15 postgresql_orioledb-17;
-          postgresql_15_debug = if pkgs.stdenv.isLinux then postgresql_15.debug else null;
+          inherit postgresql_15-1 postgresql_15-6 postgresql_15-8 postgresql_orioledb-17;
+          postgresql_15-1_debug = if pkgs.stdenv.isLinux then postgresql_15-1.debug else null;
+          postgresql_15-6_debug = if pkgs.stdenv.isLinux then postgresql_15-6.debug else null;
+          postgresql_15-8_debug = if pkgs.stdenv.isLinux then postgresql_15-8.debug else null;
           postgresql_orioledb-17_debug = if pkgs.stdenv.isLinux then postgresql_orioledb-17.debug else null;
-          postgresql_15_src = pkgs.stdenv.mkDerivation {
-            pname = "postgresql-15-src";
-            version = postgresql_15.version;
-
-            src = postgresql_15.src;
-
-            nativeBuildInputs = [ pkgs.bzip2 ];
-
-            phases = [ "unpackPhase" "installPhase" ];
-
-            installPhase = ''
-              mkdir -p $out
-              cp -r . $out
-            '';
-
-            meta = with pkgs.lib; {
-              description = "PostgreSQL 15 source files";
-              homepage = "https://www.postgresql.org/";
-              license = licenses.postgresql;
-              platforms = platforms.all;
-            };
-          };
-          postgresql_orioledb-17_src = pkgs.stdenv.mkDerivation {
-            pname = "postgresql-17-src";
-            version = postgresql_orioledb-17.version;
-
-            src = postgresql_orioledb-17.src;
-
-            nativeBuildInputs = [ pkgs.bzip2 ];
-
-            phases = [ "unpackPhase" "installPhase" ];
-
-            installPhase = ''
-              mkdir -p $out
-              cp -r . $out
-            '';
-
-            meta = with pkgs.lib; {
-              description = "PostgreSQL 15 source files";
-              homepage = "https://www.postgresql.org/";
-              license = licenses.postgresql;
-              platforms = platforms.all;
-            };
-          };
           mecab_naist_jdic = mecab-naist-jdic;
           supabase_groonga = supabase-groonga;
           pg_regress = makePgRegress activeVersion;
@@ -798,6 +808,41 @@
               done
               exit 0
             '';      
+
+          # Function to create source derivation for PostgreSQL
+          makePostgresqlSrc = version: pkgs.stdenv.mkDerivation {
+            pname = "postgresql-${version}";
+            version = pkgs."postgresql_${version}".version;
+
+            src = pkgs."postgresql_${version}".src;
+
+            nativeBuildInputs = [ pkgs.bzip2 ];
+
+            phases = [ "unpackPhase" "installPhase" ];
+
+            installPhase = ''
+              mkdir -p $out
+              cp -r . $out
+            '';
+
+            meta = with pkgs.lib; {
+              description = "PostgreSQL ${version} source files";
+              homepage = "https://www.postgresql.org/";
+              license = licenses.postgresql;
+              platforms = platforms.all;
+            };
+          };
+
+          # List of PostgreSQL versions to cover
+          postgresqlVersions = [
+            "15-1"
+            "15-6"
+            "15-8"
+            "orioledb-17"
+          ];
+
+          # Generate source derivations for each version
+          postgresql_srcs = builtins.map makePostgresqlSrc postgresqlVersions;
     in
       rec {
         # The list of all packages that can be built with 'nix build'. The list
@@ -811,8 +856,10 @@
         # The list of exported 'checks' that are run with every run of 'nix
         # flake check'. This is run in the CI system, as well.
         checks = {
-          psql_15 = makeCheckHarness basePackages.psql_15.bin;
-          psql_orioledb-17 = makeCheckHarness basePackages.psql_orioledb-17.bin;
+            psql_15-1 = makeCheckHarness basePackages.psql_15-1.bin;
+            psql_15-6 = makeCheckHarness basePackages.psql_15-6.bin;
+            psql_15-8 = makeCheckHarness basePackages.psql_15-8.bin;
+            psql_orioledb-17 = makeCheckHarness basePackages.psql_orioledb-17.bin;
         };
 
         # Apps is a list of names of things that can be executed with 'nix run';
