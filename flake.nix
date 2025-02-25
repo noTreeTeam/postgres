@@ -798,6 +798,7 @@
                 --user=supabase_admin \
                 ${builtins.concatStringsSep " " sortedTestList}; then
                 echo "pg_regress tests failed"
+                cat $out/regression_output/regression.diffs
                 exit 1
               fi
 
