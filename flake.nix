@@ -68,6 +68,11 @@
               buildPgrxExtension_0_12_6 = prev.buildPgrxExtension.override {
                 cargo-pgrx = final.cargo-pgrx.cargo-pgrx_0_12_6;
               };
+
+              buildPgrxExtension_0_12_9 = prev.buildPgrxExtension.override {
+                cargo-pgrx = final.cargo-pgrx.cargo-pgrx_0_12_9;
+              };
+
             })
             (final: prev: {
               postgresql = final.callPackage ./nix/postgresql/default.nix {
@@ -394,6 +399,7 @@
           supabase-groonga = supabase-groonga;
           cargo-pgrx_0_11_3 = pkgs.cargo-pgrx.cargo-pgrx_0_11_3;
           cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
+          cargo-pgrx_0_12_9 = pkgs.cargo-pgrx.cargo-pgrx_0_12_9;
           # PostgreSQL versions.
           psql_15 = postgresVersions.psql_15;
           psql_orioledb-17 = postgresVersions.psql_orioledb-17;
@@ -559,7 +565,17 @@
               chmod +x $out/bin/dbmate-tool
               wrapProgram $out/bin/dbmate-tool \
                 --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.overmind pkgs.dbmate pkgs.nix pkgs.jq pkgs.yq ]}
-            '';       
+            '';
+          update-readme = pkgs.runCommand "update-readme" {
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            buildInputs = [ pkgs.nushell ];
+          } ''
+            mkdir -p $out/bin
+            cp ${./nix/tools/update_readme.nu} $out/bin/update-readme
+            chmod +x $out/bin/update-readme
+            wrapProgram $out/bin/update-readme \
+              --prefix PATH : ${pkgs.nushell}/bin
+          '';
         };
 
 
@@ -818,6 +834,7 @@
             pg-restore = mkApp "pg-restore" "pg-restore";
             local-infra-bootstrap = mkApp "local-infra-bootstrap" "local-infra-bootstrap";
             dbmate-tool = mkApp "dbmate-tool" "dbmate-tool";
+            update-readme = mkApp "update-readme" "update-readme";
           };
 
         # 'devShells.default' lists the set of packages that are included in the
@@ -857,6 +874,7 @@
             basePackages.migrate-tool
             basePackages.sync-exts-versions
             dbmate
+            nushell
           ];
           shellHook = ''
             export HISTFILE=.history
