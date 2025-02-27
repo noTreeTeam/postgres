@@ -106,7 +106,7 @@ pgsodium_root_key_content = (
     "0000000000000000000000000000000000000000000000000000000000000000"
 )
 postgrest_base_conf_content = """
-db-uri = "postgres://authenticator:postgres@localhost:5432/postgres?application_name=postgrest"
+db-uri = "postgres://authenticator:postgres@/postgres?host=/var/run/postgresql/&application_name=postgrest"
 db-schema = "public, storage, graphql_public"
 db-anon-role = "anon"
 jwt-secret = "my_jwt_secret_which_is_not_so_secret"
@@ -124,7 +124,7 @@ API_EXTERNAL_URL=http://localhost
 GOTRUE_API_HOST=0.0.0.0
 GOTRUE_SITE_URL=
 GOTRUE_DB_DRIVER=postgres
-GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin@localhost/postgres?sslmode=disable
+GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin@/postgres?host=/var/run/postgresql/&sslmode=disable
 GOTRUE_JWT_ADMIN_ROLES=supabase_admin,service_role
 GOTRUE_JWT_AUD=authenticated
 GOTRUE_JWT_SECRET=my_jwt_secret_which_is_not_so_secret
