@@ -63,8 +63,8 @@ in
   # wal-g v2.0.1
   wal-g = walGCommon {
     version = "2.0.1";
-    sha256 = "sha256-5mwA55aAHwEFabGZ6c3pi8NLcYofvoe4bb/cFj7NWok="; # Replace with actual sha256 for v2.0.1
-    vendorHash = "sha256-BbQuY6r30AkxlCZjY8JizaOrqEBdv7rIQet9KQwYB/g="; # Replace with actual vendorHash for v2.0.1
+    sha256 = "sha256-5mwA55aAHwEFabGZ6c3pi8NLcYofvoe4bb/cFj7NWok="; 
+    vendorHash = "sha256-BbQuY6r30AkxlCZjY8JizaOrqEBdv7rIQet9KQwYB/g=";
   };
 
   # wal-g v3.0.5
