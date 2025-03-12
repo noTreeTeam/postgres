@@ -370,6 +370,35 @@
               platforms = platforms.all;
             };
           };
+          orioledb_ext_debug = pkgs.callPackage ./nix/ext/orioledb.nix {
+            postgresql = postgresql_orioledb-17;
+            enableDebugging = true;
+          };
+          orioledb_ext_src = let
+            orioledb = pkgs.callPackage ./nix/ext/orioledb.nix { 
+              postgresql = postgresql_orioledb-17;
+            };
+          in pkgs.stdenv.mkDerivation {
+            pname = "orioledb-src";
+            version = orioledb.version;
+            
+            # Reuse the source from the original package
+            src = orioledb.src;
+            
+            phases = [ "unpackPhase" "installPhase" ];
+            
+            installPhase = ''
+              mkdir -p $out
+              cp -r . $out
+            '';
+            
+            meta = with pkgs.lib; {
+              description = "OrioleDB extension source files";
+              homepage = "https://github.com/orioledb/orioledb";
+              license = licenses.postgresql;
+              platforms = platforms.all;
+            };
+          };
           mecab_naist_jdic = mecab-naist-jdic;
           supabase_groonga = supabase-groonga;
           pg_regress = makePgRegress activeVersion;
