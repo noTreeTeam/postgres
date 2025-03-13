@@ -27,7 +27,7 @@ buildPgrxExtension_0_12_9 rec {
   # Setting RUSTFLAGS in env to ensure it's available for all phases
   env = lib.optionalAttrs stdenv.isDarwin {
     POSTGRES_LIB = "${postgresql}/lib";
-    PGPORT = "5434";
+    PGPORT = if (lib.versions.major postgresql.version) == "17" then "5440" else "5439";
     RUSTFLAGS = "-C link-arg=-undefined -C link-arg=dynamic_lookup";
     NIX_BUILD_CORES = "4";  # Limit parallel jobs
     CARGO_BUILD_JOBS = "4"; # Limit cargo parallelism
