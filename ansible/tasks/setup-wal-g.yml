@@ -45,7 +45,7 @@
 - name: Create symlink for wal-g-3 from Nix profile to /usr/local/bin
   ansible.builtin.file:
     src: /home/wal-g/.nix-profile/bin/wal-g-3
-    dest: /usr/local/bin/wal-g-3
+    dest: /usr/local/bin/wal-g-v3
     state: link
     force: yes  # This will replace existing file/symlink if it exists
   become: yes   # Need sudo to write to /usr/local/bin
