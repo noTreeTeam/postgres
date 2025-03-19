@@ -24,7 +24,7 @@
 - name: Install wal-g 2 from nix binary cache
   become: yes
   shell: |
-    sudo -u wal-g bash -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && nix profile install github:supabase/postgres/{{ git_commit_sha }}#wal-g"
+    sudo -u wal-g bash -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && nix profile install github:supabase/postgres/{{ git_commit_sha }}#wal-g-2"
   when: stage2_nix
 
 - name: Install wal-g 3 from nix binary cache
@@ -35,7 +35,7 @@
 
 - name: Create symlink for wal-g from Nix profile to /usr/local/bin
   ansible.builtin.file:
-    src: /home/wal-g/.nix-profile/bin/wal-g
+    src: /home/wal-g/.nix-profile/bin/wal-g-2
     dest: /usr/local/bin/wal-g
     state: link
     force: yes  # This will replace existing file/symlink if it exists

@@ -87,7 +87,7 @@
         sfcgal = pkgs.callPackage ./nix/ext/sfcgal/sfcgal.nix { };
         supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
         mecab-naist-jdic = pkgs.callPackage ./nix/ext/mecab-naist-jdic/default.nix { };
-        inherit (pkgs.callPackage ./nix/wal-g.nix { }) wal-g wal-g-3;
+        inherit (pkgs.callPackage ./nix/wal-g.nix { }) wal-g-2 wal-g-3;
         # Our list of PostgreSQL extensions which come from upstream Nixpkgs.
         # These are maintained upstream and can easily be used here just by
         # listing their name. Anytime the version of nixpkgs is upgraded, these
@@ -406,7 +406,7 @@
           # PostgreSQL versions.
           psql_15 = postgresVersions.psql_15;
           psql_orioledb-17 = postgresVersions.psql_orioledb-17;
-          wal-g = wal-g;
+          wal-g-2 = wal-g-2;
           wal-g-3 = wal-g-3;
           sfcgal = sfcgal;
           pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;

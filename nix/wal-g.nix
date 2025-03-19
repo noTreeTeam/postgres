@@ -8,9 +8,9 @@
 }:
 
 let
-  walGCommon = { version, vendorHash, sha256 }:
+  walGCommon = { version, vendorHash, sha256, majorVersion }:
     buildGoModule rec {
-      pname = "wal-g";
+      pname = "wal-g-${majorVersion}";
       inherit version;
 
       src = fetchFromGitHub {
@@ -61,10 +61,11 @@ let
 in
 {
   # wal-g v2.0.1
-  wal-g = walGCommon {
+  wal-g-2 = walGCommon {
     version = "2.0.1";
     sha256 = "sha256-5mwA55aAHwEFabGZ6c3pi8NLcYofvoe4bb/cFj7NWok="; 
     vendorHash = "sha256-BbQuY6r30AkxlCZjY8JizaOrqEBdv7rIQet9KQwYB/g=";
+    majorVersion = "2";
   };
 
   # wal-g v3.0.5
@@ -72,5 +73,6 @@ in
     version = "3.0.5";
     sha256 = "sha256-wVr0L2ZXMuEo6tc2ajNzPinVQ8ZVzNOSoaHZ4oFsA+U=";
     vendorHash = "sha256-YDLAmRfDl9TgbabXj/1rxVQ052NZDg3IagXVTe5i9dw=";
+    majorVersion = "3";
   };
 }
