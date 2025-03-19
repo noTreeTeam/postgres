@@ -44,17 +44,22 @@ let
       ];
 
       postInstall = ''
-        mv $out/bin/pg $out/bin/wal-g
-        installShellCompletion --cmd wal-g \
-          --bash <($out/bin/wal-g completion bash) \
-          --zsh <($out/bin/wal-g completion zsh)
+        mv $out/bin/pg $out/bin/wal-g-${majorVersion}
+        
+        # Create version-specific completions
+        mkdir -p $out/share/bash-completion/completions
+        $out/bin/wal-g-${majorVersion} completion bash > $out/share/bash-completion/completions/wal-g-${majorVersion}
+        
+        mkdir -p $out/share/zsh/site-functions
+        $out/bin/wal-g-${majorVersion} completion zsh > $out/share/zsh/site-functions/_wal-g-${majorVersion}
+        
       '';
 
       meta = with lib; {
         homepage = "https://github.com/wal-g/wal-g";
         license = licenses.asl20;
         description = "Archival restoration tool for PostgreSQL";
-        mainProgram = "wal-g";
+        mainProgram = "wal-g-${majorVersion}";
         maintainers = [ samrose ];
       };
     };
