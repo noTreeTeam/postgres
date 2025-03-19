@@ -1,10 +1,10 @@
-{
-  lib,
-  buildGoModule,
-  fetchFromGitHub,
-  brotli,
-  libsodium,
-  installShellFiles,
+{ lib
+, buildGoModule
+, fetchFromGitHub
+, brotli
+, libsodium
+, installShellFiles
+,
 }:
 
 let
@@ -68,7 +68,7 @@ in
   # wal-g v2.0.1
   wal-g-2 = walGCommon {
     version = "2.0.1";
-    sha256 = "sha256-5mwA55aAHwEFabGZ6c3pi8NLcYofvoe4bb/cFj7NWok="; 
+    sha256 = "sha256-5mwA55aAHwEFabGZ6c3pi8NLcYofvoe4bb/cFj7NWok=";
     vendorHash = "sha256-BbQuY6r30AkxlCZjY8JizaOrqEBdv7rIQet9KQwYB/g=";
     majorVersion = "2";
   };
