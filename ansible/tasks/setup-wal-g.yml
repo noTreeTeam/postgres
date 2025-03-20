@@ -33,15 +33,6 @@
     sudo -u wal-g bash -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && nix profile install github:supabase/postgres/{{ git_commit_sha }}#wal-g-3"
   when: stage2_nix
 
-- name: Create symlink for wal-g from Nix profile to /usr/local/bin
-  ansible.builtin.file:
-    src: /home/wal-g/.nix-profile/bin/wal-g-2
-    dest: /usr/local/bin/wal-g
-    state: link
-    force: yes  # This will replace existing file/symlink if it exists
-  become: yes   # Need sudo to write to /usr/local/bin
-  when: stage2_nix
-
 - name: Create symlink for wal-g-3 from Nix profile to /usr/local/bin
   ansible.builtin.file:
     src: /home/wal-g/.nix-profile/bin/wal-g-3
@@ -51,7 +42,7 @@
   become: yes   # Need sudo to write to /usr/local/bin
   when: stage2_nix
 
-- name: Create symlink to make wal-g-v3 the default wal-g
+- name: Create symlink to make wal-g-v2 the default wal-g
   ansible.builtin.file:
     src: /usr/local/bin/wal-g-v2
     dest: /usr/local/bin/wal-g
