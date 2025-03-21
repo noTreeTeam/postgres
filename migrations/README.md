@@ -42,8 +42,6 @@ nix run github:supabase/postgres/mybranch#dbmate-tool -- --version 15
 
 aiming to provide a single source of truth for migrations on the platform that can be depended upon by those components. For more information on goals see [the RFC](https://www.notion.so/supabase/Centralize-SQL-Migrations-cd3847ae027d4f2bba9defb2cc82f69a)
 
-
-
 ## How it was Created
 
 Migrations were pulled (in order) from:
