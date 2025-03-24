@@ -31,6 +31,14 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 
 SELECT no_plan();
 
+CREATE TABLE test_priv (
+    id serial PRIMARY KEY,
+    name text
+);
+
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE 
+ON TABLE test_priv TO anon, authenticated, service_role;
+
 -- Add these permission tests before loading other test files
 -- Test permissions on test_priv table
 SELECT has_table_privilege('anon'::name, 'test_priv'::regclass, 'DELETE');
