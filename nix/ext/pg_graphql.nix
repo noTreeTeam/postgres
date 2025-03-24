@@ -32,7 +32,6 @@ buildPgrxExtension_0_12_9 rec {
     NIX_BUILD_CORES = "4";  # Limit parallel jobs
     CARGO_BUILD_JOBS = "4"; # Limit cargo parallelism
   };
-  CARGO_BUILD_RUSTFLAGS = "--cfg tokio_unstable -C debuginfo=0";
   CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG = true;
 
   
