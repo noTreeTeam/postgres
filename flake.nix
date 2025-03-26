@@ -822,12 +822,15 @@
                 exit 1
               fi
 
+              echo "Running migrations tests"
+              pg_prove -p 5435 -U supabase_admin -h localhost -d postgres -v ${./migrations/tests}/test.sql
+
               # Copy logs to output
               for logfile in $(find /tmp -name postgresql.log -type f); do
                 cp "$logfile" $out/postgresql.log
               done
               exit 0
-            '';      
+            '';
     in
       rec {
         # The list of all packages that can be built with 'nix build'. The list
@@ -865,6 +868,7 @@
             local-infra-bootstrap = mkApp "local-infra-bootstrap" "local-infra-bootstrap";
             dbmate-tool = mkApp "dbmate-tool" "dbmate-tool";
             update-readme = mkApp "update-readme" "update-readme";
+            show-commands = mkApp "show-commands" "show-commands";
           };
 
         # 'devShells.default' lists the set of packages that are included in the
