@@ -38,6 +38,7 @@ BEGIN
   END IF;
 END;
 $$;
+alter function extensions.grant_pg_cron_access owner to supabase_admin;
 
 drop event trigger if exists issue_pg_cron_access;
 CREATE EVENT TRIGGER issue_pg_cron_access ON ddl_command_end
