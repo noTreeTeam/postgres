@@ -2,7 +2,7 @@
 
 stdenv.mkDerivation rec {
   pname = "supautils";
-  version = "2.6.0";
+  version = "2.7.3";
 
   buildInputs = [ postgresql ];
 
@@ -10,13 +10,13 @@ stdenv.mkDerivation rec {
     owner = "supabase";
     repo = pname;
     rev = "refs/tags/v${version}";
-    hash = "sha256-QNfUpQjqHNzbNqBvjb5a3GtNH9hjbBMDUK19xUU3LpI=";
+    hash = "sha256-QKQQUz6ObzqINTLZaMQtocOkYX0Rh61fBLoB+rZ64UM=";
   };
 
   installPhase = ''
     mkdir -p $out/lib
 
-    install -D *${postgresql.dlSuffix} -t $out/lib
+    install -D build/*${postgresql.dlSuffix} -t $out/lib
   '';
 
   meta = with lib; {
