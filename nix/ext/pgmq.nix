@@ -11,6 +11,10 @@ stdenv.mkDerivation rec {
     hash = "sha256-z+8/BqIlHwlMnuIzMz6eylmYbSmhtsNt7TJf/CxbdVw=";
   };
 
+  patches = [
+    ./patches/pgmq-fix-logical-backup-bug.patch
+  ];
+
   buildPhase = ''
     cd pgmq-extension
   '';

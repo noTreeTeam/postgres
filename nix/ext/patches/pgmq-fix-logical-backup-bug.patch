@@ -1,0 +1,112 @@
+From 0719e02b68873684a8829eaaac8851baff10ee7a Mon Sep 17 00:00:00 2001
+From: steve-chavez <stevechavezast@gmail.com>
+Date: Mon, 7 Apr 2025 18:36:13 -0500
+Subject: [PATCH] fix: logical backup bug
+
+This checks if queue tables, archive tables, and sequences are attached to the
+pgmq extension before attempting to detach them.
+
+This change enables the on-pause hook to execute on-backup, resolving a logical backup bug.
+---
+ pgmq-extension/sql/pgmq.sql | 62 +++++++++++++++++++++++++++++++++----
+ 1 file changed, 56 insertions(+), 6 deletions(-)
+
+diff --git a/pgmq-extension/sql/pgmq.sql b/pgmq-extension/sql/pgmq.sql
+index 751a22f..40a232e 100644
+--- a/pgmq-extension/sql/pgmq.sql
++++ b/pgmq-extension/sql/pgmq.sql
+@@ -460,20 +460,66 @@ RETURNS TEXT AS $$
+     extname = 'pg_partman';
+ $$ LANGUAGE SQL;
+ 
+-CREATE FUNCTION pgmq.drop_queue(queue_name TEXT, partitioned BOOLEAN DEFAULT FALSE)
+-RETURNS BOOLEAN AS $$
++CREATE FUNCTION pgmq.drop_queue(queue_name TEXT)
++RETURNS BOOLEAN AS $func$
+ DECLARE
+     qtable TEXT := pgmq.format_table_name(queue_name, 'q');
++    qtable_seq TEXT := qtable || '_msg_id_seq';
+     fq_qtable TEXT := 'pgmq.' || qtable;
+     atable TEXT := pgmq.format_table_name(queue_name, 'a');
+     fq_atable TEXT := 'pgmq.' || atable;
++    partitioned BOOLEAN;
+ BEGIN
+     EXECUTE FORMAT(
+         $QUERY$
+-        ALTER EXTENSION pgmq DROP TABLE pgmq.%I
++        SELECT is_partitioned FROM pgmq.meta WHERE queue_name = %L
+         $QUERY$,
+-        qtable
+-    );
++        queue_name
++    ) INTO partitioned;
++
++    -- NEW CONDITIONAL CHECK
++    if exists (
++        select 1
++        from pg_class c
++        join pg_depend d on c.oid = d.objid
++        join pg_extension e on d.refobjid = e.oid
++        where c.relname = qtable and e.extname = 'pgmq'
++    ) then
++
++        EXECUTE FORMAT(
++            $QUERY$
++            ALTER EXTENSION pgmq DROP TABLE pgmq.%I
++            $QUERY$,
++            qtable
++        );
++
++    end if;
++
++    -- NEW CONDITIONAL CHECK
++    if exists (
++        select 1
++        from pg_class c
++        join pg_depend d on c.oid = d.objid
++        join pg_extension e on d.refobjid = e.oid
++        where c.relname = qtable_seq and e.extname = 'pgmq'
++    ) then
++        EXECUTE FORMAT(
++            $QUERY$
++            ALTER EXTENSION pgmq DROP SEQUENCE pgmq.%I
++            $QUERY$,
++            qtable_seq
++        );
++
++    end if;
++
++    -- NEW CONDITIONAL CHECK
++    if exists (
++        select 1
++        from pg_class c
++        join pg_depend d on c.oid = d.objid
++        join pg_extension e on d.refobjid = e.oid
++        where c.relname = atable and e.extname = 'pgmq'
++    ) then
+ 
+     EXECUTE FORMAT(
+         $QUERY$
+@@ -482,6 +528,10 @@ BEGIN
+         atable
+     );
+ 
++    end if;
++
++    -- NO CHANGES PAST THIS POINT
++
+     EXECUTE FORMAT(
+         $QUERY$
+         DROP TABLE IF EXISTS pgmq.%I
+@@ -520,7 +570,7 @@ BEGIN
+ 
+     RETURN TRUE;
+ END;
+-$$ LANGUAGE plpgsql;
++$func$ LANGUAGE plpgsql;
+ 
+ CREATE FUNCTION pgmq.validate_queue_name(queue_name TEXT)
+ RETURNS void AS $$
+-- 
+2.40.1
+
