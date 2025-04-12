@@ -38,7 +38,7 @@ jobs:
       matrix:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
         include:
-          - runner: larger-runner-4cpu
+          - runner: arm-runner
             arch: arm64
             ubuntu_release: focal
             ubuntu_version: 20.04
