@@ -26,7 +26,7 @@ buildPgrxExtension_0_12_9 rec {
     owner = "supabase";
     repo = "wrappers";
     rev = "v${version}";
-    hash = "sha256-7ESjqE8a0VMewgdFDFHBDxxnmRHQG54t7mFs4UI9Ffw";
+    hash = "sha256-hthb3qEXT1Kf4yPoq0udEbQzlyLtI5tug6sK4YAPFjU=";
   };
  
   nativeBuildInputs = [ pkg-config cargo git ];
