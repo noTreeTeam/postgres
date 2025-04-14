@@ -181,7 +181,6 @@ MAX_RETRY_DELAY = 32
 AWS_REGION = "ap-southeast-1"
 INSTANCE_TYPE = "t4g.micro"
 SECURITY_GROUPS = ["sg-0a883ca614ebfbae0", "sg-014d326be5a1627dc"]
-IAM_PROFILE = "pg-ap-southeast-1"
 SSH_PORT = 22
 SSH_TIMEOUT = 60
 HEALTH_CHECK_TIMEOUT = 300  # 5 minutes
@@ -198,30 +197,27 @@ def retry_with_backoff(
         @wraps(func)
         def wrapper(*args, **kwargs):
             delay = initial_delay
-            for attempt in range(max_retries):
+            for i in range(max_retries):
                 try:
                     return func(*args, **kwargs)
                 except exceptions as e:
-                    if attempt == max_retries - 1:
-                        logger.error(f"Operation failed after {max_retries} attempts: {str(e)}")
+                    if i == max_retries - 1:
                         raise
-                    logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+                    logger.warning(
+                        f"Attempt {i + 1} failed: {str(e)}. Retrying in {delay} seconds..."
+                    )
                     sleep(delay)
                     delay = min(delay * 2, max_delay)
             return None
         return wrapper
     return decorator
 
-def validate_aws_resources(ec2_client, iam_client) -> None:
+def validate_aws_resources(ec2_client) -> None:
     """Validate AWS resources before instance creation."""
     try:
         # Check security groups
         for sg in SECURITY_GROUPS:
             ec2_client.describe_security_groups(GroupIds=[sg])
-        
-        # Check IAM role
-        iam_client.get_instance_profile(InstanceProfileName=IAM_PROFILE)
-        
         logger.info("AWS resources validation successful")
     except ClientError as e:
         logger.error(f"AWS resource validation failed: {str(e)}")
@@ -246,7 +242,6 @@ def create_ec2_instance(ec2_resource, image_id: str, user_data: str) -> Any:
                 "HttpTokens": "required",
                 "HttpEndpoint": "enabled",
             },
-            IamInstanceProfile={"Name": IAM_PROFILE},
             InstanceType=INSTANCE_TYPE,
             MinCount=1,
             MaxCount=1,
@@ -309,11 +304,10 @@ def wait_for_ssh(ip_address: str) -> None:
         sleep(10)
 
 @retry_with_backoff()
-def get_ssh_connection(instance_ip: str, ssh_identity_file: str) -> Any:
+def get_ssh_connection(instance_ip: str) -> Any:
     """Get SSH connection with retries."""
     return testinfra.get_host(
-        f"paramiko://ubuntu@{instance_ip}?timeout={SSH_TIMEOUT}",
-        ssh_identity_file=ssh_identity_file,
+        f"paramiko://ubuntu@{instance_ip}?timeout={SSH_TIMEOUT}"
     )
 
 def check_service_health(host: Any, service: str, check: Callable) -> bool:
@@ -328,7 +322,7 @@ def check_service_health(host: Any, service: str, check: Callable) -> bool:
         logger.warning(f"Connection failed during {service} check: {str(e)}")
         return False
 
-def is_healthy(host: Any, instance_ip: str, ssh_identity_file: str) -> bool:
+def is_healthy(host: Any, instance_ip: str) -> bool:
     """Check if all services are healthy."""
     health_checks = [
         ("postgres", lambda h: h.run("sudo -u postgres /usr/bin/pg_isready -U postgres")),
@@ -350,11 +344,11 @@ def is_healthy(host: Any, instance_ip: str, ssh_identity_file: str) -> bool:
             return False
     return True
 
-def wait_for_healthy(host: Any, instance_ip: str, ssh_identity_file: str) -> None:
+def wait_for_healthy(host: Any, instance_ip: str) -> None:
     """Wait for all services to be healthy with timeout."""
     start_time = time.time()
     while time.time() - start_time < HEALTH_CHECK_TIMEOUT:
-        if is_healthy(host, instance_ip, ssh_identity_file):
+        if is_healthy(host, instance_ip):
             logger.info("All services are healthy")
             return
         sleep(HEALTH_CHECK_INTERVAL)
@@ -365,13 +359,12 @@ def host():
     """Create and manage an EC2 instance for testing."""
     instance = None
     try:
-        # Initialize AWS clients
+        # Initialize AWS clients using environment variables
         ec2_resource = boto3.resource("ec2", region_name=AWS_REGION)
         ec2_client = boto3.client("ec2", region_name=AWS_REGION)
-        iam_client = boto3.client("iam", region_name=AWS_REGION)
 
-        # Validate AWS resources
-        validate_aws_resources(ec2_client, iam_client)
+        # Validate AWS resources (now only checks security groups)
+        validate_aws_resources(ec2_client)
 
         # Get AMI
         images = list(ec2_resource.images.filter(
@@ -381,10 +374,10 @@ def host():
             raise ValueError(f"Expected exactly one AMI, found {len(images)}")
         image = images[0]
 
-        # Create instance
         def gzip_then_base64_encode(s: str) -> str:
             return base64.b64encode(gzip.compress(s.encode())).decode()
 
+        # Modified user data to remove AWS-specific commands
         user_data = f"""#cloud-config
 hostname: db-aaaaaaaaaaaaaaaaaaaa
 write_files:
@@ -398,49 +391,23 @@ write_files:
     - {{path: /tmp/init.json, content: {gzip_then_base64_encode(init_json_content)}, permissions: '0600', encoding: gz+b64}}
 runcmd:
     - 'sudo echo \"pgbouncer\" \"postgres\" >> /etc/pgbouncer/userlist.txt'
-    - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh .'
-    - 'bash init.sh "staging"'
+    - 'bash /tmp/init.sh "staging"'
     - 'rm -rf /tmp/*'
 """
-
         instance = create_ec2_instance(ec2_resource, image.id, user_data)
         logger.info(f"Created instance {instance.id}")
 
         # Wait for instance to be running
         wait_for_instance_running(instance)
-
-        # Set up EC2 Instance Connect
-        ec2logger = EC2InstanceConnectLogger(debug=False)
-        temp_key = EC2InstanceConnectKey(ec2logger.get_logger())
-        ec2ic = boto3.client("ec2-instance-connect", region_name=AWS_REGION)
-        
-        @retry_with_backoff()
-        def send_ssh_key():
-            response = ec2ic.send_ssh_public_key(
-                InstanceId=instance.id,
-                InstanceOSUser="ubuntu",
-                SSHPublicKey=temp_key.get_pub_key(),
-            )
-            if not response["Success"]:
-                raise Exception("Failed to send SSH public key")
-        
-        send_ssh_key()
-
-        # Wait for public IP and SSH
-        ip_address = wait_for_public_ip(instance)
-        wait_for_ssh(ip_address)
+        instance_ip = wait_for_public_ip(instance)
+        wait_for_ssh(instance_ip)
 
         # Get SSH connection
-        host = get_ssh_connection(ip_address, temp_key.get_priv_key_file())
-
-        # Wait for services to be healthy
-        wait_for_healthy(host, ip_address, temp_key.get_priv_key_file())
+        host = get_ssh_connection(instance_ip)
+        wait_for_healthy(host, instance_ip)
 
         yield host
 
-    except Exception as e:
-        logger.error(f"Error in host fixture: {str(e)}")
-        raise
     finally:
         if instance:
             try:
