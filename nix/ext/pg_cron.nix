@@ -106,7 +106,6 @@ stdenv.mkDerivation {
   meta = with lib; {
     description = "Run Cron jobs through PostgreSQL (multi-version compatible)";
     homepage = "https://github.com/citusdata/pg_cron";
-    maintainers = with maintainers; [ samrose ];
     platforms = postgresql.meta.platforms;
     license = licenses.postgresql;
   };
