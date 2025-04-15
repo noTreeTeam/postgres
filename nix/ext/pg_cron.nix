@@ -21,6 +21,9 @@ let
     };
   };
 
+  # Simple version string that concatenates all versions with dashes
+  versionString = "multi-" + lib.concatStringsSep "-" (map (v: lib.replaceStrings ["."] ["-"] v) (lib.attrNames allVersions));
+
   mkPgCron = pgCronVersion: { rev, hash, patches ? [] }: stdenv.mkDerivation {
     pname = "pg_cron";
     version = "${pgCronVersion}-pg${lib.versions.major postgresql.version}";
@@ -71,7 +74,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "pg_cron-all";
-  version = "multi-001"; #increment this if you change this package in any way
+  version = versionString;
 
   buildInputs = lib.attrValues allVersionsForPg;
 
