@@ -5,18 +5,7 @@ let
     "1.3.1" = {
       rev = "v1.3.1";
       hash = "sha256-rXotNOtQNmA55ErNxGoNSKZ0pP1uxEVlDGITFHuqGG4=";
-      postPatch = ''
-        # Add necessary includes
-        substituteInPlace src/pg_cron.c \
-          --replace '#include "postgres.h"' '#include "postgres.h"
-      #include "commands/async.h"
-      #include "miscadmin.h"'
-
-        # Update function calls to use PostgreSQL 15 APIs
-        substituteInPlace src/pg_cron.c \
-          --replace 'ProcessCompletedNotifies();' '/* ProcessCompletedNotifies removed */' \
-          --replace 'pg_analyze_and_rewrite(parsetree, sql, NULL, 0,NULL);' 'pg_analyze_and_rewrite_fixedparams(parsetree, sql, NULL, 0, NULL);'
-      '';
+      patches = [ ./pg_cron-1.3.1-pg15.patch ];
     };
     "1.4.2" = {
       rev = "v1.4.2";
@@ -32,12 +21,12 @@ let
     };
   };
 
-  mkPgCron = pgCronVersion: { rev, hash, postPatch ? "" }: stdenv.mkDerivation {
+  mkPgCron = pgCronVersion: { rev, hash, patches ? [] }: stdenv.mkDerivation {
     pname = "pg_cron";
     version = "${pgCronVersion}-pg${lib.versions.major postgresql.version}";
 
     buildInputs = [ postgresql ];
-    inherit postPatch;
+    inherit patches;
 
     src = fetchFromGitHub {
       owner = "citusdata";
@@ -82,7 +71,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "pg_cron-all";
-  version = "multi";
+  version = "multi-001"; #increment this if you change this package in any way
 
   buildInputs = lib.attrValues allVersionsForPg;
 
