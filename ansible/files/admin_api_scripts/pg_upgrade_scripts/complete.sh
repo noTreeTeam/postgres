@@ -32,6 +32,45 @@ function execute_extension_upgrade_patches {
     fi
 }
 
+function execute_wrappers_patch {
+    # If upgrading to pgsodium-less Vault, Wrappers need to be updated so that
+    # foreign servers use `vault.secrets.id` instead of `vault.secrets.key_id`
+    UPDATE_WRAPPERS_SERVER_OPTIONS_QUERY=$(cat <<EOF
+  DO \$\$
+  DECLARE
+    server_rec RECORD;
+    option_rec RECORD;
+    vault_secrets RECORD;
+  BEGIN
+    IF EXISTS (SELECT FROM pg_available_extension_versions WHERE name = 'wrappers' AND version = '0.4.6')
+      AND EXISTS (SELECT FROM pg_extension WHERE extname = 'wrappers')
+    THEN
+      FOR server_rec IN
+        SELECT srvname, srvoptions
+        FROM pg_foreign_server
+      LOOP
+        FOR option_rec IN
+          SELECT split_part(srvoption, '=', 1) AS option_name, split_part(srvoption, '=', 2) AS option_value
+          FROM UNNEST(server_rec.srvoptions) AS srvoption
+        LOOP
+          IF EXISTS (SELECT FROM vault.secrets WHERE option_rec.option_value IN (id::text, key_id::text)) THEN
+            EXECUTE format(
+              'ALTER SERVER %I OPTIONS (SET %I %L)',
+              server_rec.srvname,
+              option_rec.option_name,
+              (SELECT id FROM vault.secrets WHERE option_rec.option_value IN (id::text, key_id::text))
+            );
+          END IF;
+        END LOOP;
+      END LOOP;
+    END IF;
+  END;
+  \$\$;
+EOF
+    )
+    run_sql -c "$UPDATE_WRAPPERS_SERVER_OPTIONS_QUERY"
+}
+
 function execute_patches {
     # Patch pg_net grants
     PG_NET_ENABLED=$(run_sql -A -t -c "select count(*) > 0 from pg_extension where extname = 'pg_net';")
@@ -219,6 +258,13 @@ function complete_pg_upgrade {
     fi
 
     execute_extension_upgrade_patches || true
+
+    # For this to work we need `vault.secrets` from the old project to be
+    # preserved, but `run_generated_sql` includes `ALTER EXTENSION
+    # supabase_vault UPDATE` which modifies that. So we need to run it
+    # beforehand.
+    echo "3.1. Patch Wrappers server options"
+    execute_wrappers_patch
 
     echo "4. Running generated SQL files"
     retry 3 run_generated_sql
