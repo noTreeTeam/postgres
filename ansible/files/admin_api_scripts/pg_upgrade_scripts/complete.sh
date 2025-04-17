@@ -42,8 +42,34 @@ function execute_wrappers_patch {
     option_rec RECORD;
     vault_secrets RECORD;
   BEGIN
-    IF EXISTS (SELECT FROM pg_available_extension_versions WHERE name = 'wrappers' AND version = '0.4.6')
-      AND EXISTS (SELECT FROM pg_extension WHERE extname = 'wrappers')
+    IF EXISTS (SELECT FROM pg_extension WHERE extname = 'wrappers' AND extversion NOT IN (
+      '0.1.0',
+      '0.1.1',
+      '0.1.4',
+      '0.1.5',
+      '0.1.6',
+      '0.1.7',
+      '0.1.8',
+      '0.1.9',
+      '0.1.10',
+      '0.1.11',
+      '0.1.12',
+      '0.1.14',
+      '0.1.15',
+      '0.1.16',
+      '0.1.17',
+      '0.1.18',
+      '0.1.19',
+      '0.2.0',
+      '0.3.0',
+      '0.3.1',
+      '0.4.0',
+      '0.4.1',
+      '0.4.2',
+      '0.4.3',
+      '0.4.4',
+      '0.4.5'
+    ))
     THEN
       FOR server_rec IN
         SELECT srvname, srvoptions
