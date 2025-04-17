@@ -78,22 +78,30 @@ Additionally, [supabase/postgres](https://github.com/supabase/postgres/blob/deve
 
 ### Add a Migration
 
-First, start a local postgres server and apply the migrations
+First, start a local postgres server in another terminal window:
 
 ```shell
-# Start the database server
-nix run .#dbmate-tool -- --version 15 --flake-url "."
-
-# create a new migration
-nix develop
-dbmate new '<some message>'
+# Start the database server in another window
+nix run .#start-server 15
 ```
 
-Then, execute the migration at `./db/migrations/xxxxxxxxx_<some_message>` and make sure it runs sucessfully with
+Then, in your main terminal window:
+
+```shell
+# Set up the database URL for migrations
+export DATABASE_URL="postgres://supabase_admin@localhost:5435/postgres?sslmode=disable"
+
+# Create a new migration (make sure to specify the migrations directory)
+dbmate --migrations-dir="migrations/db/migrations" new '<some message>'
+```
+
+Then, execute the migration at `./migrations/db/xxxxxxxxx_<some_message>` and make sure it runs successfully with:
 
 ```shell
 dbmate up
 ```
+
+Note: Migrations are applied using the `supabase_admin` superuser role, as specified in the "How it was Created" section above.
 
 ### Adding a migration with docker-compose
 
