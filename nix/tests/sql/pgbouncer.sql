@@ -1,0 +1,53 @@
+-- pgbouncer schema owner
+select
+  n.nspname as schema_name,
+  r.rolname as owner
+from
+  pg_namespace n
+join
+  pg_roles r on n.nspowner = r.oid
+where
+  n.nspname = 'pgbouncer';
+
+-- pgbouncer schema functions with owners
+select
+  n.nspname as schema_name,
+  p.proname as function_name,
+  r.rolname as owner
+from
+  pg_proc p
+join
+  pg_namespace n on p.pronamespace = n.oid
+join
+  pg_roles r on p.proowner = r.oid
+where
+  n.nspname = 'pgbouncer'
+order by
+  p.proname;
+
+-- Tests role privileges on the pgbouncer objects
+WITH schema_obj AS ( 
+  SELECT oid, nspname 
+  FROM pg_namespace 
+  WHERE nspname = 'pgbouncer' 
+) 
+SELECT 
+  s.nspname AS schema, 
+  c.relname AS object_name, 
+  acl.grantee::regrole::text AS grantee, 
+  acl.privilege_type 
+FROM pg_class c 
+JOIN schema_obj s ON s.oid = c.relnamespace 
+CROSS JOIN LATERAL aclexplode(c.relacl) AS acl 
+WHERE c.relkind IN ('r', 'v', 'm', 'f', 'p') 
+  AND acl.privilege_type <> 'MAINTAIN' 
+UNION ALL 
+SELECT 
+  s.nspname AS schema, 
+  p.proname AS object_name, 
+  acl.grantee::regrole::text AS grantee, 
+  acl.privilege_type 
+FROM pg_proc p 
+JOIN schema_obj s ON s.oid = p.pronamespace 
+CROSS JOIN LATERAL aclexplode(p.proacl) AS acl 
+ORDER BY object_name, grantee, privilege_type; 
