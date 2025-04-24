@@ -94,6 +94,22 @@ jobs:
           sudo rm -rf /tmp/*  # Clean temporary files
           df -h /  # Display available space
 
+      - name: Patch stage2-nix-psql.pkr.hcl to create pg_extensions.json
+        run: |
+          cat >> stage2-nix-psql.pkr.hcl << 'EOF'
+          # Add provisioner to create pg_extensions.json
+          provisioner "shell" {
+            inline = [
+              "echo '{\"pg_cron\":\"1.3.1\"}' | sudo tee /root/pg_extensions.json",
+              "sudo chmod 644 /root/pg_extensions.json",
+              "echo 'Created pg_extensions.json with content:' && sudo cat /root/pg_extensions.json"
+            ]
+          }
+          EOF
+          # Display the modified file to verify
+          echo "Modified stage2-nix-psql.pkr.hcl:"
+          tail -n 10 stage2-nix-psql.pkr.hcl
+
       - name: Build AMI stage 2
         run: |
           packer init stage2-nix-psql.pkr.hcl

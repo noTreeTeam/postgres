@@ -507,3 +507,27 @@ def test_postgrest_ending_empty_key_query_parameter_is_removed(host):
         },
     )
     assert res.ok
+
+
+def test_pg_cron_extension(host):
+    # Connect as supabase_admin and create the extension
+    with host.sudo("postgres"):
+        result = host.run('psql -U supabase_admin -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
+        assert result.rc == 0, f"Failed to create pg_cron extension: {result.stderr}"
+
+        # Create test table
+        result = host.run('psql -U supabase_admin -d postgres -c "CREATE TABLE cron_test_log (id SERIAL PRIMARY KEY, message TEXT, log_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);"')
+        assert result.rc == 0, f"Failed to create test table: {result.stderr}"
+
+        # Schedule a job
+        result = host.run('psql -U supabase_admin -d postgres -c "SELECT cron.schedule(\'* * * * *\', \'INSERT INTO cron_test_log (message) VALUES (\\\'Hello from pg_cron!\\\');\');"')
+        assert result.rc == 0, f"Failed to schedule job: {result.stderr}"
+        assert "1" in result.stdout, "Expected schedule ID 1"
+
+        # Verify job is scheduled
+        result = host.run('psql -U supabase_admin -d postgres -c "SELECT * FROM cron.job;"')
+        assert result.rc == 0, f"Failed to query cron.job: {result.stderr}"
+        assert "* * * * *" in result.stdout, "Expected cron schedule pattern"
+        assert "INSERT INTO cron_test_log" in result.stdout, "Expected cron command"
+        assert "postgres" in result.stdout, "Expected postgres username"
+        assert "postgres" in result.stdout, "Expected postgres database"
