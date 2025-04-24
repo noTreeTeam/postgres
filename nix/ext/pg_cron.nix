@@ -50,7 +50,7 @@ let
     '';
 
     installPhase = ''
-      mkdir -p $out/{lib,share/postgresql/extension}
+      mkdir -p $out/{lib,share/postgresql/extension,bin}
       
       # Install versioned library
       install -Dm755 pg_cron${postgresql.dlSuffix} $out/lib/pg_cron-${pgCronVersion}${postgresql.dlSuffix}
@@ -83,7 +83,7 @@ stdenv.mkDerivation {
   dontBuild = true;
 
   installPhase = ''
-    mkdir -p $out/{lib,share/postgresql/extension}
+    mkdir -p $out/{lib,share/postgresql/extension,bin}
     
     # Install all versions
     for drv in ${lib.concatStringsSep " " (lib.attrValues allVersionsForPg)}; do
@@ -101,6 +101,34 @@ stdenv.mkDerivation {
     
     # Library symlink
     ln -sfnv pg_cron-$latest_version${postgresql.dlSuffix} $out/lib/pg_cron${postgresql.dlSuffix}
+
+    # Create version switcher script
+    cat > $out/bin/switch_pg_cron_version <<'EOF'
+    #!/bin/sh
+    set -e
+
+    if [ $# -ne 1 ]; then
+      echo "Usage: $0 <version>"
+      echo "Example: $0 1.4.2"
+      exit 1
+    fi
+
+    VERSION=$1
+    LIB_DIR=$(dirname "$0")/../lib
+
+    # Check if version exists
+    if [ ! -f "$LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}" ]; then
+      echo "Error: Version $VERSION not found"
+      exit 1
+    fi
+
+    # Update library symlink
+    ln -sfnv "pg_cron-$VERSION${postgresql.dlSuffix}" "$LIB_DIR/pg_cron${postgresql.dlSuffix}"
+
+    echo "Successfully switched pg_cron to version $VERSION"
+    EOF
+
+    chmod +x $out/bin/switch_pg_cron_version
   '';
 
   meta = with lib; {

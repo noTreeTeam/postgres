@@ -26,7 +26,62 @@ update_orioledb_buffers() {
    fi
 }
 
+check_extensions_file() {
+    local extensions_file="/root/pg_extensions.json"
+    if [ ! -f "$extensions_file" ]; then
+        echo "extensions: No extensions file found, skipping extensions versions check"
+        return 1
+    fi
+    return 0
+}
+
+get_pg_cron_version() {
+    if ! check_extensions_file; then
+        return
+    fi
+
+    local version
+    version=$(sudo -u postgres /home/postgres/.nix-profile/bin/jq -r '.pg_cron // empty' "/root/pg_extensions.json")
+    if [ -z "$version" ]; then
+        echo "pg_cron: Not specified in extensions file"
+        return
+    fi
+
+    if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "pg_cron: Invalid version format: $version"
+        return
+    fi
+
+    echo "$version"
+}
+
+switch_pg_cron_version() {
+    local version="$1"
+    local switch_script="/home/postgres/.nix-profile/bin/switch_pg_cron_version"
+
+    if [ ! -x "$switch_script" ]; then
+        echo "pg_cron: No version switch script available"
+        return
+    fi
+
+    echo "pg_cron: Switching to version $version"
+    sudo -u postgres "$switch_script" "$version"
+    echo "pg_cron: Version switch completed"
+}
+
+handle_pg_cron_version() {
+    local version
+    version=$(get_pg_cron_version)
+    if [ -n "$version" ]; then
+        switch_pg_cron_version "$version"
+    fi
+}
+
 main() {
+   # 1. pg_cron version handling 
+   handle_pg_cron_version
+
+   # 2. orioledb handling 
    local has_orioledb=$(check_orioledb_enabled)
    if [ "$has_orioledb" -lt 1 ]; then
        return 0
