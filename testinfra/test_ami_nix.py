@@ -275,7 +275,7 @@ write_files:
 runcmd:
     - 'sudo echo \"pgbouncer\" \"postgres\" >> /etc/pgbouncer/userlist.txt'
     - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh .'
-    - 'if [ "$POSTGRES_MAJOR_VERSION" = "15" ]; then echo \'{"pg_cron":"1.3.1"}\' | sudo tee /root/pg_extensions.json && sudo chmod 644 /root/pg_extensions.json; fi'
+    - 'if [ "$POSTGRES_MAJOR_VERSION" = "15" ]; then echo \'{{"pg_cron":"1.3.1"}}\' | sudo tee /root/pg_extensions.json && sudo chmod 644 /root/pg_extensions.json; fi'
     - 'bash init.sh "staging"'
     - 'touch /var/lib/init-complete'
     - 'rm -rf /tmp/*'
