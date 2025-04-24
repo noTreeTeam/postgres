@@ -96,7 +96,12 @@ jobs:
 
       - name: Patch stage2-nix-psql.pkr.hcl to create pg_extensions.json
         run: |
-          cat >> stage2-nix-psql.pkr.hcl << 'EOF'
+          # Get the line number of the last closing brace
+          LAST_BRACE_LINE=$(grep -n '}' stage2-nix-psql.pkr.hcl | tail -n 1 | cut -d: -f1)
+          
+          # Create a temporary file with the new content
+          head -n $((LAST_BRACE_LINE-1)) stage2-nix-psql.pkr.hcl > temp.pkr.hcl
+          cat >> temp.pkr.hcl << 'EOF'
           # Add provisioner to create pg_extensions.json
           provisioner "shell" {
             inline = [
@@ -105,7 +110,12 @@ jobs:
               "echo 'Created pg_extensions.json with content:' && sudo cat /root/pg_extensions.json"
             ]
           }
+          }
           EOF
+          
+          # Replace the original file
+          mv temp.pkr.hcl stage2-nix-psql.pkr.hcl
+          
           # Display the modified file to verify
           echo "Modified stage2-nix-psql.pkr.hcl:"
           tail -n 10 stage2-nix-psql.pkr.hcl
