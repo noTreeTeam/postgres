@@ -272,10 +272,10 @@ write_files:
     - {{path: /etc/gotrue.env, content: {gzip_then_base64_encode(gotrue_env_content)}, permissions: '0664', encoding: gz+b64}}
     - {{path: /etc/wal-g/config.json, content: {gzip_then_base64_encode(walg_config_json_content)}, permissions: '0664', owner: 'wal-g:wal-g', encoding: gz+b64}}
     - {{path: /tmp/init.json, content: {gzip_then_base64_encode(init_json_content)}, permissions: '0600', encoding: gz+b64}}
-    - {{path: /root/pg_extensions.json, content: {gzip_then_base64_encode('{"pg_cron":"1.3.1"}')}, permissions: '0644', encoding: gz+b64}}
 runcmd:
     - 'sudo echo \"pgbouncer\" \"postgres\" >> /etc/pgbouncer/userlist.txt'
     - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh .'
+    - 'if [ "$POSTGRES_MAJOR_VERSION" = "15" ]; then echo \'{"pg_cron":"1.3.1"}\' | sudo tee /root/pg_extensions.json && sudo chmod 644 /root/pg_extensions.json; fi'
     - 'bash init.sh "staging"'
     - 'touch /var/lib/init-complete'
     - 'rm -rf /tmp/*'
@@ -511,6 +511,11 @@ def test_postgrest_ending_empty_key_query_parameter_is_removed(host):
 
 
 def test_pg_cron_extension(host):
+    # Only run this test for PostgreSQL 15
+    postgres_version = os.environ.get("POSTGRES_MAJOR_VERSION")
+    if postgres_version != "15":
+        pytest.skip(f"Skipping pg_cron test for PostgreSQL version {postgres_version}")
+
     # Connect as supabase_admin and create the extension
     with host.sudo("postgres"):
         result = host.run('psql -U supabase_admin -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
