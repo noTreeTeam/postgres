@@ -361,9 +361,26 @@ runcmd:
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
+                    logger.error(f"{service} command failed with rc={cmd.rc}")
+                    logger.error(f"{service} stdout: {cmd.stdout}")
+                    logger.error(f"{service} stderr: {cmd.stderr}")
+                    
+                    # For PostgreSQL, also check the logs and systemd status
+                    if service == "postgres":
+                        logger.error("PostgreSQL logs:")
+                        host.run("sudo cat /var/log/postgresql/postgresql-*.log")
+                        logger.error("PostgreSQL systemd status:")
+                        host.run("sudo systemctl status postgresql")
+                        logger.error("PostgreSQL journal logs:")
+                        host.run("sudo journalctl -u postgresql --no-pager")
+                    
                     return False
-            except Exception:
-                logger.warning(f"Connection failed during {service} check")
+            except Exception as e:
+                logger.warning(
+                    f"Connection failed during {service} check, attempting reconnect..."
+                )
+                logger.error(f"Error details: {str(e)}")
+                host = get_ssh_connection(instance_ip, ssh_identity_file)
                 return False
 
         return True
