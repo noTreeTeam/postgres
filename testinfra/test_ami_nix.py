@@ -410,6 +410,10 @@ runcmd:
                         logger.error(f"systemd status: {systemd_status.stdout}")
                         logger.error(f"systemd error: {systemd_status.stderr}")
                         
+                        # Get detailed systemd status
+                        logger.error("Detailed systemd status:")
+                        host.run("sudo systemctl status postgresql -l --no-pager")
+                        
                         # Check init script logs
                         logger.error("Init script logs:")
                         host.run("sudo journalctl -u cloud-init --no-pager")
@@ -422,6 +426,44 @@ runcmd:
                         logger.error("Init script status:")
                         host.run("ls -la /tmp/init.sh")
                         host.run("cat /tmp/init.sh")
+                        
+                        # Check PostgreSQL configuration
+                        logger.error("PostgreSQL configuration:")
+                        host.run("sudo cat /etc/postgresql/*/main/postgresql.conf")
+                        host.run("sudo cat /etc/postgresql/*/main/pg_hba.conf")
+                        
+                        # Check PostgreSQL data directory permissions
+                        logger.error("PostgreSQL data directory permissions:")
+                        host.run("sudo ls -la /var/lib/postgresql/*/main/")
+                        
+                        # Check PostgreSQL startup logs
+                        logger.error("PostgreSQL startup logs:")
+                        host.run("sudo cat /var/log/postgresql/postgresql-*.log")
+                        
+                        # Check systemd journal for PostgreSQL
+                        logger.error("Systemd journal for PostgreSQL:")
+                        host.run("sudo journalctl -u postgresql -n 100 --no-pager")
+                        
+                        # Check for any PostgreSQL-related errors in system logs
+                        logger.error("System logs with PostgreSQL errors:")
+                        host.run("sudo journalctl | grep -i postgres | tail -n 100")
+                        
+                        # Check for any disk space issues
+                        logger.error("Disk space information:")
+                        host.run("df -h")
+                        host.run("sudo du -sh /var/lib/postgresql/*")
+                        
+                        # Check for any memory issues
+                        logger.error("Memory information:")
+                        host.run("free -h")
+                        
+                        # Check for any process conflicts
+                        logger.error("Running processes:")
+                        host.run("ps aux | grep postgres")
+                        
+                        # Check for any port conflicts
+                        logger.error("Port usage:")
+                        host.run("sudo netstat -tulpn | grep 5432")
                     
                     if socket_check.failed:
                         logger.error("PostgreSQL socket directory check failed")
