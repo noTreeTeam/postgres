@@ -11,6 +11,7 @@ SYSTEM=$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"')
 nix build .#checks.$SYSTEM.psql_15 -L --no-link
 nix build .#checks.$SYSTEM.psql_orioledb-17 -L --no-link
 nix build .#checks.$SYSTEM.psql_17 -L --no-link
+nix build .#pgbouncer -L
 nix build .#psql_15/bin -o psql_15 -L
 nix build .#psql_orioledb-17/bin -o psql_orioledb_17 -L
 nix build .#psql_17/bin -o psql_17 -L
@@ -20,6 +21,7 @@ nix build .#wal-g-3 -o wal-g-3 -L
 # Copy to S3
 nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./wal-g-2
 nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./wal-g-3
+nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./pgbouncer
 nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./psql_15
 nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./psql_orioledb_17
 nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./psql_17

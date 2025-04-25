@@ -84,9 +84,10 @@
             })
           ];
         };
+        mecab-naist-jdic = pkgs.callPackage ./nix/ext/mecab-naist-jdic/default.nix { };
+        pgbouncer = pkgs.callPackage ./nix/pgbouncer.nix { };
         sfcgal = pkgs.callPackage ./nix/ext/sfcgal/sfcgal.nix { };
         supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
-        mecab-naist-jdic = pkgs.callPackage ./nix/ext/mecab-naist-jdic/default.nix { };
         inherit (pkgs.callPackage ./nix/wal-g.nix { }) wal-g-2 wal-g-3;
         # Our list of PostgreSQL extensions which come from upstream Nixpkgs.
         # These are maintained upstream and can easily be used here just by
@@ -400,6 +401,7 @@
           postgresql_orioledb-17 = getPostgresqlPackage "orioledb-17";
         in 
         postgresVersions // {
+          pgbouncer = pgbouncer;
           supabase-groonga = supabase-groonga;
           cargo-pgrx_0_11_3 = pkgs.cargo-pgrx.cargo-pgrx_0_11_3;
           cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
