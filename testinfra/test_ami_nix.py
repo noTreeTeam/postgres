@@ -348,33 +348,109 @@ runcmd:
 
     def is_healthy(ssh) -> bool:
         health_checks = [
+<<<<<<< HEAD
             ("postgres", "sudo -u postgres /usr/bin/pg_isready -U postgres"),
             ("adminapi", f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"),
             ("postgrest", "curl -sf --connect-timeout 30 --max-time 60 http://localhost:3001/ready"),
             ("gotrue", "curl -sf --connect-timeout 30 --max-time 60 http://localhost:8081/health"),
             ("kong", "sudo kong health"),
             ("fail2ban", "sudo fail2ban-client status"),
+=======
+            (
+                "postgres",
+                lambda h: (
+                    # First check if PostgreSQL is running
+                    h.run("sudo systemctl is-active postgresql"),
+                    # Then check if the socket directory exists and has correct permissions
+                    h.run("sudo ls -la /run/postgresql"),
+                    # Then try pg_isready
+                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres")
+                ),
+            ),
+            (
+                "adminapi",
+                lambda h: h.run(
+                    f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"
+                ),
+            ),
+            (
+                "postgrest",
+                lambda h: h.run(
+                    "curl -sf --connect-timeout 30 --max-time 60 http://localhost:3001/ready"
+                ),
+            ),
+            (
+                "gotrue",
+                lambda h: h.run(
+                    "curl -sf --connect-timeout 30 --max-time 60 http://localhost:8081/health"
+                ),
+            ),
+            ("kong", lambda h: h.run("sudo kong health")),
+            ("fail2ban", lambda h: h.run("sudo fail2ban-client status")),
+>>>>>>> 2bd7b6d9 (test: more logging for healthcheck)
         ]
 
         for service, command in health_checks:
             try:
+<<<<<<< HEAD
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
                     logger.error(f"{service} command failed with rc={cmd.rc}")
                     logger.error(f"{service} stdout: {cmd.stdout}")
                     logger.error(f"{service} stderr: {cmd.stderr}")
+=======
+                if service == "postgres":
+                    # For PostgreSQL, we need to check multiple things
+                    systemd_status, socket_check, pg_isready = check(host)
+>>>>>>> 2bd7b6d9 (test: more logging for healthcheck)
                     
-                    # For PostgreSQL, also check the logs and systemd status
-                    if service == "postgres":
-                        logger.error("PostgreSQL logs:")
-                        host.run("sudo cat /var/log/postgresql/postgresql-*.log")
-                        logger.error("PostgreSQL systemd status:")
-                        host.run("sudo systemctl status postgresql")
-                        logger.error("PostgreSQL journal logs:")
-                        host.run("sudo journalctl -u postgresql --no-pager")
+                    if systemd_status.failed:
+                        logger.error("PostgreSQL systemd service is not active")
+                        logger.error(f"systemd status: {systemd_status.stdout}")
+                        logger.error(f"systemd error: {systemd_status.stderr}")
+                        
+                        # Check init script logs
+                        logger.error("Init script logs:")
+                        host.run("sudo journalctl -u cloud-init --no-pager")
+                        
+                        # Check cloud-init logs
+                        logger.error("Cloud-init logs:")
+                        host.run("sudo cat /var/log/cloud-init-output.log")
+                        
+                        # Check if init script exists and its contents
+                        logger.error("Init script status:")
+                        host.run("ls -la /tmp/init.sh")
+                        host.run("cat /tmp/init.sh")
                     
-                    return False
+                    if socket_check.failed:
+                        logger.error("PostgreSQL socket directory check failed")
+                        logger.error(f"socket check: {socket_check.stdout}")
+                        logger.error(f"socket error: {socket_check.stderr}")
+                    
+                    if pg_isready.failed:
+                        logger.error("pg_isready check failed")
+                        logger.error(f"pg_isready output: {pg_isready.stdout}")
+                        logger.error(f"pg_isready error: {pg_isready.stderr}")
+                    
+                    # Check PostgreSQL logs for startup issues
+                    logger.error("PostgreSQL logs:")
+                    host.run("sudo cat /var/log/postgresql/postgresql-*.log")
+                    logger.error("PostgreSQL systemd status:")
+                    host.run("sudo systemctl status postgresql")
+                    logger.error("PostgreSQL journal logs:")
+                    host.run("sudo journalctl -u postgresql --no-pager")
+                    
+                    if any(cmd.failed for cmd in [systemd_status, socket_check, pg_isready]):
+                        return False
+                else:
+                    cmd = check(host)
+                    if cmd.failed is True:
+                        logger.warning(f"{service} not ready")
+                        logger.error(f"{service} command failed with rc={cmd.rc}")
+                        logger.error(f"{service} stdout: {cmd.stdout}")
+                        logger.error(f"{service} stderr: {cmd.stderr}")
+                        return False
             except Exception as e:
                 logger.warning(
                     f"Connection failed during {service} check, attempting reconnect..."
