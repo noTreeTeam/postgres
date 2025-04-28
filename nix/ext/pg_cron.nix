@@ -116,14 +116,21 @@ stdenv.mkDerivation {
     VERSION=$1
     LIB_DIR=$(dirname "$0")/../lib
 
+    # Use platform-specific extension
+    if [ "$(uname)" = "Darwin" ]; then
+      EXT=".dylib"
+    else
+      EXT=".so"
+    fi
+
     # Check if version exists
-    if [ ! -f "$LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}" ]; then
+    if [ ! -f "$LIB_DIR/pg_cron-$VERSION$EXT" ]; then
       echo "Error: Version $VERSION not found"
       exit 1
     fi
 
     # Update library symlink
-    ln -sfnv "pg_cron-$VERSION${postgresql.dlSuffix}" "$LIB_DIR/pg_cron${postgresql.dlSuffix}"
+    ln -sfnv "pg_cron-$VERSION$EXT" "$LIB_DIR/pg_cron$EXT"
 
     echo "Successfully switched pg_cron to version $VERSION"
     EOF
