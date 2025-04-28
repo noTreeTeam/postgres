@@ -407,38 +407,38 @@ runcmd:
                     
                     # Log Nix profile setup checks
                     logger.info("Checking Nix profile setup:")
-                    nix_profile_result = host.run("sudo -u postgres ls -la /home/postgres/.nix-profile")
+                    nix_profile_result = host.run("ls -la /home/postgres/.nix-profile")
                     logger.info(f"Nix profile directory:\n{nix_profile_result.stdout}\n{nix_profile_result.stderr}")
 
-                    nix_bin_result = host.run("sudo -u postgres ls -la /home/postgres/.nix-profile/bin")
+                    nix_bin_result = host.run("ls -la /home/postgres/.nix-profile/bin")
                     logger.info(f"Nix profile bin directory:\n{nix_bin_result.stdout}\n{nix_bin_result.stderr}")
 
-                    nix_script_result = host.run("sudo -u postgres test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version")
+                    nix_script_result = host.run("test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version")
                     logger.info(f"Switch script executable check: {'success' if not nix_script_result.failed else 'failed'}")
 
-                    nix_script_output = host.run("sudo -u postgres /home/postgres/.nix-profile/bin/switch_pg_cron_version")
+                    nix_script_output = host.run("/home/postgres/.nix-profile/bin/switch_pg_cron_version")
                     logger.info(f"Switch script output:\n{nix_script_output.stdout}\n{nix_script_output.stderr}")
 
                     if systemd_status.failed:
                         logger.error("PostgreSQL systemd service is not active")
                         logger.error(f"systemd status: {systemd_status.stdout}")
                         logger.error(f"systemd error: {systemd_status.stderr}")
-                        
+
                         # Check systemd service unit file
                         logger.error("PostgreSQL systemd service unit file:")
                         result = host.run("sudo systemctl cat postgresql")
                         logger.error(f"service unit file:\n{result.stdout}\n{result.stderr}")
-                        
+
                         # Check systemd service environment
                         logger.error("PostgreSQL systemd service environment:")
                         result = host.run("sudo systemctl show postgresql")
                         logger.error(f"service environment:\n{result.stdout}\n{result.stderr}")
-                        
+
                         # Check systemd service dependencies
                         logger.error("PostgreSQL systemd service dependencies:")
                         result = host.run("sudo systemctl list-dependencies postgresql")
                         logger.error(f"service dependencies:\n{result.stdout}\n{result.stderr}")
-                        
+
                         # Check if service is enabled
                         logger.error("PostgreSQL service enabled status:")
                         result = host.run("sudo systemctl is-enabled postgresql")
