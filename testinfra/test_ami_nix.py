@@ -364,7 +364,13 @@ runcmd:
                     # Then check if the socket directory exists and has correct permissions
                     h.run("sudo ls -la /run/postgresql"),
                     # Then try pg_isready
-                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres")
+                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres"),
+                    # Check Nix profile setup
+                    h.run("echo 'Check Nix profile setup'"),
+                    h.run("sudo -u postgres ls -la /home/postgres/.nix-profile"),
+                    h.run("sudo -u postgres ls -la /home/postgres/.nix-profile/bin"),
+                    h.run("sudo -u postgres test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version"),
+                    h.run("sudo -u postgres cat /home/postgres/.nix-profile/bin/switch_pg_cron_version")
                 ),
             ),
             (
