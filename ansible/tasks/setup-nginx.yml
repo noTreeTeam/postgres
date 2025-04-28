@@ -5,6 +5,7 @@
 - name: nginx - system dependencies
   apt:
     pkg:
+      - build-essential
       - openssl
       - libpcre3-dev
       - libssl-dev
