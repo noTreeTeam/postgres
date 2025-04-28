@@ -11,7 +11,7 @@ SYSTEM=$(nix-instantiate --eval -E builtins.currentSystem | tr -d '"')
 nix build .#checks.$SYSTEM.psql_15 -L --no-link
 nix build .#checks.$SYSTEM.psql_orioledb-17 -L --no-link
 nix build .#checks.$SYSTEM.psql_17 -L --no-link
-nix build .#pgbouncer -L
+nix build .#pgbouncer -o pgbouncer -L
 nix build .#psql_15/bin -o psql_15 -L
 nix build .#psql_orioledb-17/bin -o psql_orioledb_17 -L
 nix build .#psql_17/bin -o psql_17 -L
