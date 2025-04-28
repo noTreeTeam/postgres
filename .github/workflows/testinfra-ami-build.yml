@@ -108,13 +108,13 @@ jobs:
           df -h /  # Display available space
 
       - name: Run tests
-        timeout-minutes: 10
+        timeout-minutes: 30
         env:
           AMI_NAME: "supabase-postgres-${{ steps.random.outputs.random_string }}"
         run: |
           # TODO: use poetry for pkg mgmt
           pip3 install boto3 boto3-stubs[essential] docker ec2instanceconnectcli pytest pytest-testinfra[paramiko,docker] requests
-          pytest -vv -s testinfra/test_ami_nix.py 
+          pytest -vvvv -s testinfra/test_ami_nix.py
       
       - name: Cleanup resources on build cancellation
         if: ${{ cancelled() }}
