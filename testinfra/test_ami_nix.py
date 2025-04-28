@@ -348,171 +348,41 @@ runcmd:
 
     def is_healthy(ssh) -> bool:
         health_checks = [
-<<<<<<< HEAD
             ("postgres", "sudo -u postgres /usr/bin/pg_isready -U postgres"),
             ("adminapi", f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"),
             ("postgrest", "curl -sf --connect-timeout 30 --max-time 60 http://localhost:3001/ready"),
             ("gotrue", "curl -sf --connect-timeout 30 --max-time 60 http://localhost:8081/health"),
             ("kong", "sudo kong health"),
             ("fail2ban", "sudo fail2ban-client status"),
-=======
-            (
-                "postgres",
-                lambda h: (
-                    # First check if PostgreSQL is running
-                    h.run("sudo systemctl is-active postgresql"),
-                    # Then check if the socket directory exists and has correct permissions
-                    h.run("sudo ls -la /run/postgresql"),
-                    # Then try pg_isready
-                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres")
-                ),
-            ),
-            (
-                "adminapi",
-                lambda h: h.run(
-                    f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"
-                ),
-            ),
-            (
-                "postgrest",
-                lambda h: h.run(
-                    "curl -sf --connect-timeout 30 --max-time 60 http://localhost:3001/ready"
-                ),
-            ),
-            (
-                "gotrue",
-                lambda h: h.run(
-                    "curl -sf --connect-timeout 30 --max-time 60 http://localhost:8081/health"
-                ),
-            ),
-            ("kong", lambda h: h.run("sudo kong health")),
-            ("fail2ban", lambda h: h.run("sudo fail2ban-client status")),
->>>>>>> 2bd7b6d9 (test: more logging for healthcheck)
         ]
 
         for service, command in health_checks:
             try:
-<<<<<<< HEAD
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
                     logger.error(f"{service} command failed with rc={cmd.rc}")
                     logger.error(f"{service} stdout: {cmd.stdout}")
                     logger.error(f"{service} stderr: {cmd.stderr}")
-=======
-                if service == "postgres":
-                    # For PostgreSQL, we need to check multiple things
-                    systemd_status, socket_check, pg_isready = check(host)
->>>>>>> 2bd7b6d9 (test: more logging for healthcheck)
                     
-                    # Log Nix profile setup checks
-                    logger.info("Checking Nix profile setup:")
-                    nix_profile_result = host.run("ls -la /home/postgres/.nix-profile")
-                    logger.info(f"Nix profile directory:\n{nix_profile_result.stdout}\n{nix_profile_result.stderr}")
-
-                    nix_bin_result = host.run("ls -la /home/postgres/.nix-profile/bin")
-                    logger.info(f"Nix profile bin directory:\n{nix_bin_result.stdout}\n{nix_bin_result.stderr}")
-
-                    nix_script_result = host.run("test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version")
-                    logger.info(f"Switch script executable check: {'success' if not nix_script_result.failed else 'failed'}")
-
-                    nix_script_output = host.run("/home/postgres/.nix-profile/bin/switch_pg_cron_version")
-                    logger.info(f"Switch script output:\n{nix_script_output.stdout}\n{nix_script_output.stderr}")
-
                     if systemd_status.failed:
                         logger.error("PostgreSQL systemd service is not active")
                         logger.error(f"systemd status: {systemd_status.stdout}")
                         logger.error(f"systemd error: {systemd_status.stderr}")
-
-                        # Check systemd service unit file
-                        logger.error("PostgreSQL systemd service unit file:")
-                        result = host.run("sudo systemctl cat postgresql")
-                        logger.error(f"service unit file:\n{result.stdout}\n{result.stderr}")
-
-                        # Check systemd service environment
-                        logger.error("PostgreSQL systemd service environment:")
-                        result = host.run("sudo systemctl show postgresql")
-                        logger.error(f"service environment:\n{result.stdout}\n{result.stderr}")
-
-                        # Check systemd service dependencies
-                        logger.error("PostgreSQL systemd service dependencies:")
-                        result = host.run("sudo systemctl list-dependencies postgresql")
-                        logger.error(f"service dependencies:\n{result.stdout}\n{result.stderr}")
-
-                        # Check if service is enabled
-                        logger.error("PostgreSQL service enabled status:")
-                        result = host.run("sudo systemctl is-enabled postgresql")
-                        logger.error(f"service enabled status:\n{result.stdout}\n{result.stderr}")
                         
-                        # Check systemd journal for service execution logs
-                        logger.error("Systemd journal entries for PostgreSQL service execution:")
-                        result = host.run("sudo journalctl -u postgresql -n 100 --no-pager")
-                        logger.error(f"systemd journal:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check systemd journal specifically for ExecStartPre and ExecStart
-                        logger.error("Systemd journal entries for ExecStartPre and ExecStart:")
-                        result = host.run("sudo journalctl -u postgresql -n 100 --no-pager | grep -E 'ExecStartPre|ExecStart'")
-                        logger.error(f"execution logs:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check systemd journal for any errors
-                        logger.error("Systemd journal entries with error level:")
-                        result = host.run("sudo journalctl -u postgresql -n 100 --no-pager -p err")
-                        logger.error(f"error logs:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check pre-start script output
-                        logger.error("Checking pre-start script output:")
-                        result = host.run("sudo -u postgres /usr/local/bin/postgres_prestart.sh")
-                        logger.error(f"pre-start script output:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check PostgreSQL logs directory
-                        logger.error("Checking PostgreSQL logs directory:")
-                        result = host.run("sudo ls -la /var/log/postgresql/")
-                        logger.error(f"log directory contents:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check any existing PostgreSQL logs
-                        logger.error("Checking existing PostgreSQL logs:")
-                        result = host.run("sudo cat /var/log/postgresql/*.log")
-                        logger.error(f"postgresql logs:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Try starting PostgreSQL directly with pg_ctl and capture output
-                        logger.error("Attempting to start PostgreSQL directly with pg_ctl:")
-                        startup_log = "/tmp/postgres-start.log"
-                        result = host.run(f"sudo -u postgres /usr/lib/postgresql/bin/pg_ctl -D /var/lib/postgresql/data start -l {startup_log}")
-                        logger.error(f"pg_ctl start attempt:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check the startup log
-                        logger.error("PostgreSQL startup log:")
-                        result = host.run(f"sudo cat {startup_log}")
-                        logger.error(f"startup log contents:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Clean up the startup log
-                        result = host.run(f"sudo rm -f {startup_log}")
-                        
-                        # Check PostgreSQL configuration
-                        logger.error("PostgreSQL configuration:")
-                        result = host.run("sudo cat /etc/postgresql/postgresql.conf")
-                        logger.error(f"postgresql.conf:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check PostgreSQL authentication configuration
-                        logger.error("PostgreSQL authentication configuration:")
-                        result = host.run("sudo cat /etc/postgresql/pg_hba.conf")
-                        logger.error(f"pg_hba.conf:\n{result.stdout}\n{result.stderr}")
-                        
-                        # Check PostgreSQL environment
-                        logger.error("PostgreSQL environment:")
-                        result = host.run("sudo -u postgres env | grep POSTGRES")
-                        logger.error(f"postgres environment:\n{result.stdout}\n{result.stderr}")
+                        # Run detailed checks since we know we have a working connection
+                        run_detailed_checks(host)
                         
                         if any(cmd.failed for cmd in [systemd_status, socket_check, pg_isready]):
                             return False
-                    else:
-                        cmd = check(host)
-                        if cmd.failed is True:
-                            logger.warning(f"{service} not ready")
-                            logger.error(f"{service} command failed with rc={cmd.rc}")
-                            logger.error(f"{service} stdout: {cmd.stdout}")
-                            logger.error(f"{service} stderr: {cmd.stderr}")
-                            return False
+                else:
+                    cmd = check(host)
+                    if cmd.failed is True:
+                        logger.warning(f"{service} not ready")
+                        logger.error(f"{service} command failed with rc={cmd.rc}")
+                        logger.error(f"{service} stdout: {cmd.stdout}")
+                        logger.error(f"{service} stderr: {cmd.stderr}")
+                        return False
             except Exception as e:
                 logger.warning(
                     f"Connection failed during {service} check, attempting reconnect..."
