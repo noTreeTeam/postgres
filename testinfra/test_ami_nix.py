@@ -364,13 +364,7 @@ runcmd:
                     # Then check if the socket directory exists and has correct permissions
                     h.run("sudo ls -la /run/postgresql"),
                     # Then try pg_isready
-                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres"),
-                    # Check Nix profile setup
-                    h.run("echo 'Check Nix profile setup'"),
-                    h.run("sudo -u postgres ls -la /home/postgres/.nix-profile"),
-                    h.run("sudo -u postgres ls -la /home/postgres/.nix-profile/bin"),
-                    h.run("sudo -u postgres test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version"),
-                    h.run("sudo -u postgres cat /home/postgres/.nix-profile/bin/switch_pg_cron_version")
+                    h.run("sudo -u postgres /usr/bin/pg_isready -U postgres")
                 ),
             ),
             (
@@ -411,6 +405,20 @@ runcmd:
                     systemd_status, socket_check, pg_isready = check(host)
 >>>>>>> 2bd7b6d9 (test: more logging for healthcheck)
                     
+                    # Log Nix profile setup checks
+                    logger.info("Checking Nix profile setup:")
+                    nix_profile_result = host.run("sudo -u postgres ls -la /home/postgres/.nix-profile")
+                    logger.info(f"Nix profile directory:\n{nix_profile_result.stdout}\n{nix_profile_result.stderr}")
+
+                    nix_bin_result = host.run("sudo -u postgres ls -la /home/postgres/.nix-profile/bin")
+                    logger.info(f"Nix profile bin directory:\n{nix_bin_result.stdout}\n{nix_bin_result.stderr}")
+
+                    nix_script_result = host.run("sudo -u postgres test -x /home/postgres/.nix-profile/bin/switch_pg_cron_version")
+                    logger.info(f"Switch script executable check: {'success' if not nix_script_result.failed else 'failed'}")
+
+                    nix_script_output = host.run("sudo -u postgres /home/postgres/.nix-profile/bin/switch_pg_cron_version")
+                    logger.info(f"Switch script output:\n{nix_script_output.stdout}\n{nix_script_output.stderr}")
+
                     if systemd_status.failed:
                         logger.error("PostgreSQL systemd service is not active")
                         logger.error(f"systemd status: {systemd_status.stdout}")
