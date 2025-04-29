@@ -358,23 +358,27 @@ runcmd:
 
         for service, command in health_checks:
             try:
+<<<<<<< HEAD
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
                     logger.error(f"{service} command failed with rc={cmd.rc}")
                     logger.error(f"{service} stdout: {cmd.stdout}")
                     logger.error(f"{service} stderr: {cmd.stderr}")
+=======
+                if service == "postgres":
+                    # For PostgreSQL, we need to check multiple things
+                    pg_isready = check(host)
+>>>>>>> 65ef0692 (test: do not unpack result)
                     
-                    if systemd_status.failed:
-                        logger.error("PostgreSQL systemd service is not active")
-                        logger.error(f"systemd status: {systemd_status.stdout}")
-                        logger.error(f"systemd error: {systemd_status.stderr}")
+                    if pg_isready.failed:
+                        logger.error("PostgreSQL is not ready")
+                        logger.error(f"pg_isready stdout: {pg_isready.stdout}")
+                        logger.error(f"pg_isready stderr: {pg_isready.stderr}")
                         
                         # Run detailed checks since we know we have a working connection
                         run_detailed_checks(host)
-                        
-                        if any(cmd.failed for cmd in [systemd_status, socket_check, pg_isready]):
-                            return False
+                        return False
                 else:
                     cmd = check(host)
                     if cmd.failed is True:
