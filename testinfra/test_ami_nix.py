@@ -346,31 +346,7 @@ runcmd:
         instance.terminate()
         raise TimeoutError("init.sh failed to complete within the timeout period")
 
-<<<<<<< HEAD
     def is_healthy(ssh) -> bool:
-=======
-        # Check PostgreSQL logs directory
-        logger.info("Checking PostgreSQL logs directory:")
-        result = host.run("sudo ls -la /var/log/postgresql/")
-        logger.info(f"log directory contents:\n{result.stdout}\n{result.stderr}")
-
-        # Check any existing PostgreSQL logs
-        logger.info("Checking existing PostgreSQL logs:")
-        result = host.run("sudo cat /var/log/postgresql/*.log")
-        logger.info(f"postgresql logs:\n{result.stdout}\n{result.stderr}")
-
-        # Check the startup log
-        logger.info("PostgreSQL startup log:")
-        result = host.run(f"sudo cat {startup_log}")
-        logger.info(f"startup log contents:\n{result.stdout}\n{result.stderr}")
-
-        # Check PostgreSQL environment
-        logger.info("PostgreSQL environment:")
-        result = host.run("sudo -u postgres env | grep POSTGRES")
-        logger.info(f"postgres environment:\n{result.stdout}\n{result.stderr}")
-
-    def is_healthy(host, instance_ip, ssh_identity_file) -> bool:
->>>>>>> c2631e8c (test: reorg and print logs while waiting continue on other checks when ready)
         health_checks = [
             ("postgres", "sudo -u postgres /usr/bin/pg_isready -U postgres"),
             ("adminapi", f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"),
@@ -382,22 +358,16 @@ runcmd:
 
         for service, command in health_checks:
             try:
-<<<<<<< HEAD
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
                     logger.error(f"{service} command failed with rc={cmd.rc}")
                     logger.error(f"{service} stdout: {cmd.stdout}")
                     logger.error(f"{service} stderr: {cmd.stderr}")
-=======
-                if service == "postgres":
-                    pg_isready = check(host)
->>>>>>> 65ef0692 (test: do not unpack result)
                     
-                    # Always read and log the PostgreSQL logs first
+                    # Always read and log the PostgreSQL logs
                     logger.warning("PostgreSQL status check:")
                     try:
-                        # Read both .log and .csv files
                         log_files = [
                             "/var/log/postgresql/*.log",
                             "/var/log/postgresql/*.csv"
@@ -415,33 +385,42 @@ runcmd:
                     except Exception as e:
                         logger.error(f"Error reading PostgreSQL logs: {str(e)}")
 
-                    # Then check the status and return
-                    if not pg_isready.failed:
-                        continue
-                    # Wait before next attempt
-                    sleep(5)
-                    return False
+                    service_status[service] = not pg_isready.failed
+
                 else:
                     cmd = check(host)
-                    if cmd.failed is True:
+                    service_status[service] = not cmd.failed
+                    if cmd.failed:
                         logger.warning(f"{service} not ready")
                         logger.error(f"{service} command failed with rc={cmd.rc}")
                         logger.error(f"{service} stdout: {cmd.stdout}")
                         logger.error(f"{service} stderr: {cmd.stderr}")
-                        return False
+
             except Exception as e:
-                logger.warning(
-                    f"Connection failed during {service} check, attempting reconnect..."
-                )
+                logger.warning(f"Connection failed during {service} check, attempting reconnect...")
                 logger.error(f"Error details: {str(e)}")
                 host = get_ssh_connection(instance_ip, ssh_identity_file)
-                return False
+                service_status[service] = False
 
-        return True
+        # Log overall status of all services
+        logger.info("Service health status:")
+        for service, healthy in service_status.items():
+            logger.info(f"{service}: {'healthy' if healthy else 'unhealthy'}")
+
+        # If any service is unhealthy, wait and return False with status
+        if not all(service_status.values()):
+            if service_status.get("postgres", False):  # If postgres is healthy but others aren't
+                sleep(5)  # Only wait if postgres is up but other services aren't
+            logger.warning("Some services are not healthy, will retry...")
+            return False, service_status
+
+        logger.info("All services are healthy, proceeding to tests...")
+        return True, service_status
 
     while True:
         if is_healthy(ssh):
             break
+        logger.warning(f"Health check failed, service status: {status}")
         sleep(1)
 
     # Return both the SSH connection and instance IP for use in tests
