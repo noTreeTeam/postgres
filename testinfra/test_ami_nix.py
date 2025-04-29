@@ -346,7 +346,31 @@ runcmd:
         instance.terminate()
         raise TimeoutError("init.sh failed to complete within the timeout period")
 
+<<<<<<< HEAD
     def is_healthy(ssh) -> bool:
+=======
+        # Check PostgreSQL logs directory
+        logger.info("Checking PostgreSQL logs directory:")
+        result = host.run("sudo ls -la /var/log/postgresql/")
+        logger.info(f"log directory contents:\n{result.stdout}\n{result.stderr}")
+
+        # Check any existing PostgreSQL logs
+        logger.info("Checking existing PostgreSQL logs:")
+        result = host.run("sudo cat /var/log/postgresql/*.log")
+        logger.info(f"postgresql logs:\n{result.stdout}\n{result.stderr}")
+
+        # Check the startup log
+        logger.info("PostgreSQL startup log:")
+        result = host.run(f"sudo cat {startup_log}")
+        logger.info(f"startup log contents:\n{result.stdout}\n{result.stderr}")
+
+        # Check PostgreSQL environment
+        logger.info("PostgreSQL environment:")
+        result = host.run("sudo -u postgres env | grep POSTGRES")
+        logger.info(f"postgres environment:\n{result.stdout}\n{result.stderr}")
+
+    def is_healthy(host, instance_ip, ssh_identity_file) -> bool:
+>>>>>>> c2631e8c (test: reorg and print logs while waiting continue on other checks when ready)
         health_checks = [
             ("postgres", "sudo -u postgres /usr/bin/pg_isready -U postgres"),
             ("adminapi", f"curl -sf -k --connect-timeout 30 --max-time 60 https://localhost:8085/health -H 'apikey: {supabase_admin_key}'"),
@@ -367,18 +391,36 @@ runcmd:
                     logger.error(f"{service} stderr: {cmd.stderr}")
 =======
                 if service == "postgres":
-                    # For PostgreSQL, we need to check multiple things
                     pg_isready = check(host)
 >>>>>>> 65ef0692 (test: do not unpack result)
                     
-                    if pg_isready.failed:
-                        logger.error("PostgreSQL is not ready")
-                        logger.error(f"pg_isready stdout: {pg_isready.stdout}")
-                        logger.error(f"pg_isready stderr: {pg_isready.stderr}")
+                    # Always read and log the PostgreSQL logs first
+                    logger.warning("PostgreSQL status check:")
+                    try:
+                        # Read both .log and .csv files
+                        log_files = [
+                            "/var/log/postgresql/*.log",
+                            "/var/log/postgresql/*.csv"
+                        ]
                         
-                        # Run detailed checks since we know we have a working connection
-                        run_detailed_checks(host)
-                        return False
+                        for log_pattern in log_files:
+                            log_result = host.run(f"sudo cat {log_pattern}")
+                            if not log_result.failed:
+                                logger.error(f"PostgreSQL logs from {log_pattern}:")
+                                logger.error(log_result.stdout)
+                                if log_result.stderr:
+                                    logger.error(f"Log read errors: {log_result.stderr}")
+                            else:
+                                logger.error(f"Failed to read PostgreSQL logs from {log_pattern}: {log_result.stderr}")
+                    except Exception as e:
+                        logger.error(f"Error reading PostgreSQL logs: {str(e)}")
+
+                    # Then check the status and return
+                    if not pg_isready.failed:
+                        continue
+                    # Wait before next attempt
+                    sleep(5)
+                    return False
                 else:
                     cmd = check(host)
                     if cmd.failed is True:
