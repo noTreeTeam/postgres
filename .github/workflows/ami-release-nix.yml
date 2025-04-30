@@ -79,7 +79,7 @@ jobs:
           packer init amazon-arm64-nix.pkr.hcl
           GIT_SHA=${{github.sha}}
           # why is postgresql_major defined here instead of where the _three_ other postgresql_* variables are defined?
-          packer build -var "git-head-version=${GIT_SHA}" -var "packer-execution-id=${GITHUB_RUN_ID}"  -var-file="development-arm.vars.pkr.hcl" -var-file="common-nix.vars.pkr.hcl" -var "ansible_arguments=-e postgresql_major=${POSTGRES_MAJOR_VERSION}"  amazon-arm64-nix.pkr.hcl
+          packer build -var "git-head-version=${GIT_SHA}" -var "packer-execution-id=${GITHUB_RUN_ID}"  -var-file="development-arm.vars.pkr.hcl" -var-file="common-nix.vars.pkr.hcl" -var "ansible_arguments=-e postgresql_major=${POSTGRES_MAJOR_VERSION}" -var "ami_regions=[\"ap-southeast-2\",\"us-east-1\",\"eu-central-1\"]" amazon-arm64-nix.pkr.hcl
 
       - name: Build AMI stage 2
         env:
@@ -88,7 +88,7 @@ jobs:
           packer init stage2-nix-psql.pkr.hcl
           GIT_SHA=${{github.sha}}
           POSTGRES_MAJOR_VERSION=${{ env.POSTGRES_MAJOR_VERSION }}
-          packer build -var "git_sha=${GIT_SHA}" -var "git-head-version=${GIT_SHA}" -var "packer-execution-id=${GITHUB_RUN_ID}" -var "postgres_major_version=${POSTGRES_MAJOR_VERSION}" -var-file="development-arm.vars.pkr.hcl" -var-file="common-nix.vars.pkr.hcl" stage2-nix-psql.pkr.hcl
+          packer build -var "git_sha=${GIT_SHA}" -var "git-head-version=${GIT_SHA}" -var "packer-execution-id=${GITHUB_RUN_ID}" -var "postgres_major_version=${POSTGRES_MAJOR_VERSION}" -var-file="development-arm.vars.pkr.hcl" -var-file="common-nix.vars.pkr.hcl" -var "ami_regions=[\"ap-southeast-2\",\"us-east-1\",\"eu-central-1\"]" stage2-nix-psql.pkr.hcl
 
       - name: Grab release version
         id: process_release_version
