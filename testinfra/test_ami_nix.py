@@ -162,6 +162,7 @@ init_json_content = f"""
   "init_database_only": false
 }}
 """
+pg_cron_json = '{"pg_cron": "1.3.1"}'
 
 logger = logging.getLogger("ami-tests")
 handler = logging.StreamHandler()
@@ -272,11 +273,11 @@ write_files:
     - {{path: /etc/gotrue.env, content: {gzip_then_base64_encode(gotrue_env_content)}, permissions: '0664', encoding: gz+b64}}
     - {{path: /etc/wal-g/config.json, content: {gzip_then_base64_encode(walg_config_json_content)}, permissions: '0664', owner: 'wal-g:wal-g', encoding: gz+b64}}
     - {{path: /tmp/init.json, content: {gzip_then_base64_encode(init_json_content)}, permissions: '0600', encoding: gz+b64}}
+    - {{path: /root/pg_extensions.json, content: {gzip_then_base64_encode('{"pg_cron": "1.3.1"}')}, permissions: '0644', encoding: gz+b64}}
 runcmd:
     - 'sudo echo \"pgbouncer\" \"postgres\" >> /etc/pgbouncer/userlist.txt'
-    - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh .'
-    - 'if [ "$POSTGRES_MAJOR_VERSION" = "15" ]; then echo \'{{"pg_cron":"1.3.1"}}\' | sudo tee /root/pg_extensions.json && sudo chmod 644 /root/pg_extensions.json; fi'
-    - 'bash init.sh "staging"'
+    - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh . 2>&1 | tee /var/log/init-download.log'
+    - 'bash init.sh "staging" 2>&1 | tee /var/log/init-script.log'
     - 'touch /var/lib/init-complete'
     - 'rm -rf /tmp/*'
 """,
@@ -343,6 +344,25 @@ runcmd:
 
     if attempt >= max_attempts:
         logger.error("init.sh failed to complete within the timeout period")
+        
+        # Check init script logs before terminating
+        try:
+            download_log = run_ssh_command(ssh, "sudo cat /var/log/init-download.log")
+            if download_log['succeeded']:
+                logger.error("Init script download log:")
+                logger.error(download_log['stdout'])
+            else:
+                logger.error(f"Failed to read download log: {download_log['stderr']}")
+                
+            init_log = run_ssh_command(ssh, "sudo cat /var/log/init-script.log")
+            if init_log['succeeded']:
+                logger.error("Init script execution log:")
+                logger.error(init_log['stdout'])
+            else:
+                logger.error(f"Failed to read init script log: {init_log['stderr']}")
+        except Exception as e:
+            logger.error(f"Error reading logs: {str(e)}")
+            
         instance.terminate()
         raise TimeoutError("init.sh failed to complete within the timeout period")
 
@@ -356,15 +376,16 @@ runcmd:
             ("fail2ban", "sudo fail2ban-client status"),
         ]
 
+        service_status = {}
         for service, command in health_checks:
             try:
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
-                    logger.error(f"{service} command failed with rc={cmd.rc}")
-                    logger.error(f"{service} stdout: {cmd.stdout}")
-                    logger.error(f"{service} stderr: {cmd.stderr}")
-                    
+                    logger.error(f"{service} command failed")
+                    logger.error(f"{service} stdout: {result['stdout']}")
+                    logger.error(f"{service} stderr: {result['stderr']}")
+
                     # Always read and log the PostgreSQL logs
                     logger.warning("PostgreSQL status check:")
                     try:
@@ -372,34 +393,26 @@ runcmd:
                             "/var/log/postgresql/*.log",
                             "/var/log/postgresql/*.csv"
                         ]
-                        
+
                         for log_pattern in log_files:
-                            log_result = host.run(f"sudo cat {log_pattern}")
-                            if not log_result.failed:
+                            log_result = run_ssh_command(ssh, f"sudo cat {log_pattern}")
+                            if log_result['succeeded']:
                                 logger.error(f"PostgreSQL logs from {log_pattern}:")
-                                logger.error(log_result.stdout)
-                                if log_result.stderr:
-                                    logger.error(f"Log read errors: {log_result.stderr}")
+                                logger.error(log_result['stdout'])
+                                if log_result['stderr']:
+                                    logger.error(f"Log read errors: {log_result['stderr']}")
                             else:
-                                logger.error(f"Failed to read PostgreSQL logs from {log_pattern}: {log_result.stderr}")
+                                logger.error(f"Failed to read PostgreSQL logs from {log_pattern}: {log_result['stderr']}")
                     except Exception as e:
                         logger.error(f"Error reading PostgreSQL logs: {str(e)}")
 
-                    service_status[service] = not pg_isready.failed
-
+                    service_status[service] = False
                 else:
-                    cmd = check(host)
-                    service_status[service] = not cmd.failed
-                    if cmd.failed:
-                        logger.warning(f"{service} not ready")
-                        logger.error(f"{service} command failed with rc={cmd.rc}")
-                        logger.error(f"{service} stdout: {cmd.stdout}")
-                        logger.error(f"{service} stderr: {cmd.stderr}")
+                    service_status[service] = True
 
             except Exception as e:
                 logger.warning(f"Connection failed during {service} check, attempting reconnect...")
                 logger.error(f"Error details: {str(e)}")
-                host = get_ssh_connection(instance_ip, ssh_identity_file)
                 service_status[service] = False
 
         # Log overall status of all services
@@ -412,16 +425,16 @@ runcmd:
             if service_status.get("postgres", False):  # If postgres is healthy but others aren't
                 sleep(5)  # Only wait if postgres is up but other services aren't
             logger.warning("Some services are not healthy, will retry...")
-            return False, service_status
+            return False
 
         logger.info("All services are healthy, proceeding to tests...")
-        return True, service_status
+        return True
 
     while True:
         if is_healthy(ssh):
             break
-        logger.warning(f"Health check failed, service status: {status}")
-        sleep(1)
+        logger.warning("Health check failed, retrying...")
+        sleep(5)
 
     # Return both the SSH connection and instance IP for use in tests
     yield {
