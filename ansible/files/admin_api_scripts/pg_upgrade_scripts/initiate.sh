@@ -397,10 +397,8 @@ function initiate_upgrade {
     chown -R postgres:postgres "$MOUNT_POINT/"
     rm -rf "${PGDATANEW:?}/"
 
-    # Change max_slot_wal_keep_size to -1 for upgrade only if both versions are PostgreSQL 17+
-    if [[ ("$OLD_PGVERSION" =~ ^17.* || "$OLD_PGVERSION" == "17-orioledb") && ("$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb") ]]; then
-        sed -i 's/max_slot_wal_keep_size = [0-9]*/max_slot_wal_keep_size = -1/' /etc/postgresql/postgresql.conf
-    fi
+    # Change max_slot_wal_keep_size to -1 for binary upgrade
+    sed -i 's/max_slot_wal_keep_size = [0-9]*/max_slot_wal_keep_size = -1/' /etc/postgresql/postgresql.conf
 
     if [ "$IS_NIX_UPGRADE" = "true" ]; then
         if [[ "$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb" ]]; then
