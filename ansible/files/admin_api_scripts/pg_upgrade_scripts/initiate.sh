@@ -397,9 +397,6 @@ function initiate_upgrade {
     chown -R postgres:postgres "$MOUNT_POINT/"
     rm -rf "${PGDATANEW:?}/"
 
-    # Change max_slot_wal_keep_size to -1 for binary upgrade
-    sed -i 's/max_slot_wal_keep_size = [0-9]*/max_slot_wal_keep_size = -1/' /etc/postgresql/postgresql.conf
-
     if [ "$IS_NIX_UPGRADE" = "true" ]; then
         if [[ "$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb" ]]; then
             LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 LC_COLLATE=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $PGBINNEW/initdb --encoding=$SERVER_ENCODING --locale-provider=icu --icu-locale=en_US.UTF-8 -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
@@ -430,8 +427,10 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     --jobs="${WORKERS}" -r \
     --old-options='-c config_file=${POSTGRES_CONFIG_PATH}' \
     --old-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
+    --old-options="-c max_slot_wal_keep_size=-1" \
     --new-options="-c data_directory=${PGDATANEW}" \
-    --new-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'"
+    --new-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
+    --new-options="-c max_slot_wal_keep_size=-1"
 EOF
     )
 

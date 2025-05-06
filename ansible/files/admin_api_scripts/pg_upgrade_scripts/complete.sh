@@ -22,9 +22,6 @@ function cleanup {
 
     ship_logs "$LOG_FILE" || true
 
-    # Restore max_slot_wal_keep_size to 4096 after binary upgrade
-    sed -i 's/max_slot_wal_keep_size = -1/max_slot_wal_keep_size = 4096/' /etc/postgresql/postgresql.conf
-
     # Restart postgres to apply any configuration changes
     if [ -z "$IS_CI" ]; then
         systemctl restart postgresql
