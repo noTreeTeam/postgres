@@ -397,6 +397,11 @@ function initiate_upgrade {
     chown -R postgres:postgres "$MOUNT_POINT/"
     rm -rf "${PGDATANEW:?}/"
 
+    # Change max_slot_wal_keep_size to -1 for upgrade only if both versions are PostgreSQL 17+
+    if [[ ("$OLD_PGVERSION" =~ ^17.* || "$OLD_PGVERSION" == "17-orioledb") && ("$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb") ]]; then
+        sed -i 's/max_slot_wal_keep_size = [0-9]*/max_slot_wal_keep_size = -1/' /etc/postgresql/postgresql.conf
+    fi
+
     if [ "$IS_NIX_UPGRADE" = "true" ]; then
         if [[ "$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb" ]]; then
             LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 LC_COLLATE=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $PGBINNEW/initdb --encoding=$SERVER_ENCODING --locale-provider=icu --icu-locale=en_US.UTF-8 -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
