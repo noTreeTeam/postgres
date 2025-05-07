@@ -427,7 +427,6 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     --jobs="${WORKERS}" -r \
     --old-options='-c config_file=${POSTGRES_CONFIG_PATH}' \
     --old-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
-    --old-options="-c max_slot_wal_keep_size=-1" \
     --new-options="-c data_directory=${PGDATANEW}" \
     --new-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
     --new-options="-c max_slot_wal_keep_size=-1"
