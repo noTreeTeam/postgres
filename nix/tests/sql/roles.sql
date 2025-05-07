@@ -1,3 +1,10 @@
+-- Some predefined roles don't exist in earlier versions of Postgres, so we
+-- exclude them in this test file. They're tested in version-specific test files
+-- (z_<ver>_roles.sql).
+--
+-- Currently those roles are:
+-- pg_create_subscription, pg_maintain, pg_use_reserved_connections
+
 -- all roles and attributes
 select
   rolname,
@@ -11,7 +18,6 @@ select
   rolbypassrls   ,
   rolvaliduntil
 from pg_roles r
--- TODO: this exclusion is to maintain compat with pg17, we should cover it
 where rolname not in ('pg_create_subscription', 'pg_maintain', 'pg_use_reserved_connections')
 order by rolname;
 
@@ -19,7 +25,6 @@ select
   rolname,
   rolconfig
 from pg_roles r
--- TODO: this exclusion is to maintain compat with pg17, we should cover it
 where rolname not in ('pg_create_subscription', 'pg_maintain', 'pg_use_reserved_connections')
 order by rolname;
 
@@ -34,8 +39,8 @@ left join
     pg_auth_members m on r.oid = m.member
 left join
     pg_roles g on m.roleid = g.oid
--- TODO: this exclusion is to maintain compat with pg17, we should cover it
 where r.rolname not in ('pg_create_subscription', 'pg_maintain', 'pg_use_reserved_connections')
+and g.rolname not in ('pg_create_subscription', 'pg_maintain', 'pg_use_reserved_connections')
 order by
     r.rolname, g.rolname;
 
@@ -57,7 +62,8 @@ from (
     join
         pg_roles r on a.grantee = r.oid
     where
-        a.privilege_type != 'MAINTAIN' -- TODO: this is to maintain compat with pg17, we should cover it
+        -- PG17+, handled in version-specific test files
+        a.privilege_type != 'MAINTAIN'
     union all
     -- explicit grant usage and create on the schemas
     select
