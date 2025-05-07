@@ -429,7 +429,6 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     --old-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
     --new-options="-c data_directory=${PGDATANEW}" \
     --new-options="-c shared_preload_libraries='${SHARED_PRELOAD_LIBRARIES}'" \
-    --new-options='-c config_file=${TEMP_POSTGRES_CONFIG_PATH}' \
     --new-options="-c max_slot_wal_keep_size=-1"
 EOF
     )
