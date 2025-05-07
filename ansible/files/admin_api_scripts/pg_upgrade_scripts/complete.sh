@@ -22,13 +22,6 @@ function cleanup {
 
     ship_logs "$LOG_FILE" || true
 
-    # Restart postgres to apply any configuration changes
-    if [ -z "$IS_CI" ]; then
-        systemctl restart postgresql
-    else
-        CI_start_postgres
-    fi
-
     exit "$EXIT_CODE"
 }
 
