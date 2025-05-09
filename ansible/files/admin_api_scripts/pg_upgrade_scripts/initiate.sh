@@ -435,6 +435,11 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
        echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
     fi
 
+    # Remove db_user_namespace if upgrading from PG15
+    if [[ "$OLD_PGVERSION" =~ ^15.* ]]; then
+        sed -i '/^db_user_namespace/d' "$TMP_CONFIG"
+    fi
+
     chown postgres:postgres "$TMP_CONFIG"
  
     UPGRADE_COMMAND=$(cat <<EOF
