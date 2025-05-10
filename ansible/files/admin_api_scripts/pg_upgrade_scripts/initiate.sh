@@ -43,8 +43,8 @@ POST_UPGRADE_EXTENSION_SCRIPT="/tmp/pg_upgrade/pg_upgrade_extensions.sql"
 POST_UPGRADE_POSTGRES_PERMS_SCRIPT="/tmp/pg_upgrade/pg_upgrade_postgres_perms.sql"
 OLD_PGVERSION=$(pg_config --version | sed 's/PostgreSQL \([0-9]*\.[0-9]*\).*/\1/')
 
-# Skip locale settings if both versions are PostgreSQL 17+ or 17-orioledb
-if ! [[ (("$OLD_PGVERSION" =~ ^17.* || "$OLD_PGVERSION" == "17-orioledb") && ("$PGVERSION" =~ ^17.* || "$PGVERSION" == "17-orioledb")) ]]; then
+# Skip locale settings if both versions are PostgreSQL 17+
+if ! [[ "$OLD_PGVERSION" =~ ^17.* && "$PGVERSION" =~ ^17.* ]]; then
     SERVER_LC_COLLATE=$(run_sql -A -t -c "SHOW lc_collate;")
     SERVER_LC_CTYPE=$(run_sql -A -t -c "SHOW lc_ctype;")
 fi
@@ -436,7 +436,7 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     fi
 
     # Remove db_user_namespace if upgrading from PG15
-    if [[ "$OLD_PGVERSION" =~ ^15.* ]]; then
+    if [[ "$OLD_PGVERSION" =~ ^15.* && "$PGVERSION" =~ ^17.* ]]; then
         sed -i '/^db_user_namespace/d' "$TMP_CONFIG"
     fi
 
