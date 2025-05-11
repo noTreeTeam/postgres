@@ -478,6 +478,13 @@ EOF
 
         sleep 3
         systemctl stop postgresql
+        
+        # Additional check to ensure postgres is really stopped
+        if [ -f "${PGDATAOLD}/postmaster.pid" ]; then
+            echo "PostgreSQL still running, forcing stop..."
+            kill -9 $(head -n 1 "${PGDATAOLD}/postmaster.pid") || true
+            rm -f "${PGDATAOLD}/postmaster.pid"
+        fi
     else
         CI_stop_postgres
     fi
