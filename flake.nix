@@ -772,7 +772,7 @@
 
                 show_help() {
                   cat << EOF
-                Usage: run-testinfra --ami-name NAME [--aws-vault-profile PROFILE]
+                Usage: run-testinfra --ami-name NAME [--aws-vault-profile PROFILE] [--postgres-version VERSION]
 
                 Run the testinfra tests locally against a specific AMI.
 
@@ -789,6 +789,7 @@
 
                 Optional flags:
                   --aws-vault-profile PROFILE  AWS Vault profile to use (default: staging)
+                  --postgres-version VERSION   PostgreSQL major version to test (default: 15)
                   --help                       Show this help message and exit
 
                 Requirements:
@@ -799,12 +800,14 @@
                 Examples:
                   run-testinfra --ami-name supabase-postgres-abc123
                   run-testinfra --ami-name supabase-postgres-abc123 --aws-vault-profile production
+                  run-testinfra --ami-name supabase-postgres-abc123 --postgres-version 15
                 EOF
                 }
 
                 # Default values
                 AWS_VAULT_PROFILE="staging"
                 AMI_NAME=""
+                POSTGRES_MAJOR_VERSION="15"
 
                 # Parse arguments
                 while [[ $# -gt 0 ]]; do
@@ -815,6 +818,10 @@
                       ;;
                     --ami-name)
                       AMI_NAME="$2"
+                      shift 2
+                      ;;
+                    --postgres-version)
+                      POSTGRES_MAJOR_VERSION="$2"
                       shift 2
                       ;;
                     --help)
@@ -847,6 +854,7 @@
                 export AWS_DEFAULT_REGION="ap-southeast-1"
                 export AMI_NAME="$AMI_NAME"  # Export AMI_NAME for pytest
                 export RUN_ID="local-$(date +%s)"  # Generate a unique RUN_ID
+                export POSTGRES_MAJOR_VERSION="$POSTGRES_MAJOR_VERSION"  # Export PostgreSQL version for pytest
 
                 # Function to terminate EC2 instances
                 terminate_instances() {

@@ -115,6 +115,7 @@ stdenv.mkDerivation {
 
     VERSION=$1
     LIB_DIR=$(dirname "$0")/../lib
+    EXTENSION_DIR=$(dirname "$0")/../share/postgresql/extension
 
     # Check if version exists
     if [ ! -f "$LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}" ]; then
@@ -124,6 +125,10 @@ stdenv.mkDerivation {
 
     # Update library symlink
     ln -sfnv "pg_cron-$VERSION${postgresql.dlSuffix}" "$LIB_DIR/pg_cron${postgresql.dlSuffix}"
+
+    # Update control file
+    echo "default_version = '$VERSION'" > "$EXTENSION_DIR/pg_cron.control"
+    cat "$EXTENSION_DIR/pg_cron--$VERSION.control" >> "$EXTENSION_DIR/pg_cron.control"
 
     echo "Successfully switched pg_cron to version $VERSION"
     EOF
