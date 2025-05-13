@@ -579,24 +579,67 @@ def test_pg_cron_extension(host):
     if postgres_version != "15":
         pytest.skip(f"Skipping pg_cron test for PostgreSQL version {postgres_version}")
 
-    # Connect as supabase_admin and create the extension
-    with host.sudo("postgres"):
-        result = host.run('psql -U supabase_admin -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
-        assert result.rc == 0, f"Failed to create pg_cron extension: {result.stderr}"
+    # Use the SSH connection to run commands as postgres user
+    ssh = host['ssh']
 
-        # Create test table
-        result = host.run('psql -U supabase_admin -d postgres -c "CREATE TABLE cron_test_log (id SERIAL PRIMARY KEY, message TEXT, log_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);"')
-        assert result.rc == 0, f"Failed to create test table: {result.stderr}"
+    # Check prestart script
+    result = run_ssh_command(ssh, 'ls -l /etc/postgresql/prestart.d/postgres_prestart.sh')
+    assert result['succeeded'], f"Failed to find prestart script: {result['stderr']}"
+    logger.info(f"Prestart script details: {result['stdout']}")
 
-        # Schedule a job
-        result = host.run('psql -U supabase_admin -d postgres -c "SELECT cron.schedule(\'* * * * *\', \'INSERT INTO cron_test_log (message) VALUES (\\\'Hello from pg_cron!\\\');\');"')
-        assert result.rc == 0, f"Failed to schedule job: {result.stderr}"
-        assert "1" in result.stdout, "Expected schedule ID 1"
+    # Check if extensions file exists
+    result = run_ssh_command(ssh, 'cat /root/pg_extensions.json')
+    assert result['succeeded'], f"Failed to read extensions file: {result['stderr']}"
+    logger.info(f"Extensions file contents: {result['stdout']}")
 
-        # Verify job is scheduled
-        result = host.run('psql -U supabase_admin -d postgres -c "SELECT * FROM cron.job;"')
-        assert result.rc == 0, f"Failed to query cron.job: {result.stderr}"
-        assert "* * * * *" in result.stdout, "Expected cron schedule pattern"
-        assert "INSERT INTO cron_test_log" in result.stdout, "Expected cron command"
-        assert "postgres" in result.stdout, "Expected postgres username"
-        assert "postgres" in result.stdout, "Expected postgres database"
+    # Check if version switcher exists
+    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version')
+    assert result['succeeded'], f"Failed to find version switcher: {result['stderr']}"
+    logger.info(f"Version switcher details: {result['stdout']}")
+
+    # Create the extension
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
+    assert result['succeeded'], f"Failed to create pg_cron extension: {result['stderr']}"
+
+    # Verify the extension version
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT extversion FROM pg_extension WHERE extname = \'pg_cron\';"')
+    assert result['succeeded'], f"Failed to get pg_cron version: {result['stderr']}"
+    assert "1.3.1" in result['stdout'], f"Expected pg_cron version 1.3.1, but got: {result['stdout']}"
+    logger.info(f"pg_cron version: {result['stdout']}")
+
+    # Check the actual function definition
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\sf cron.schedule"')
+    assert result['succeeded'], f"Failed to get cron.schedule function definition: {result['stderr']}"
+    logger.info(f"cron.schedule function definition: {result['stdout']}")
+
+    # Check extension details
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT * FROM pg_extension WHERE extname = \'pg_cron\';"')
+    assert result['succeeded'], f"Failed to get pg_cron extension details: {result['stderr']}"
+    logger.info(f"pg_cron extension details: {result['stdout']}")
+
+    # Create test table
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE TABLE cron_test_log (id SERIAL PRIMARY KEY, message TEXT, log_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);"')
+    assert result['succeeded'], f"Failed to create test table: {result['stderr']}"
+
+    # Check the schema of cron.job table
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\d cron.job"')
+    assert result['succeeded'], f"Failed to get cron.job schema: {result['stderr']}"
+    logger.info(f"cron.job schema: {result['stdout']}")
+
+    # Check available cron functions
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\df cron.*"')
+    assert result['succeeded'], f"Failed to get cron functions: {result['stderr']}"
+    logger.info(f"Available cron functions: {result['stdout']}")
+
+    # Schedule a job using the basic schedule function
+    result = run_ssh_command(ssh, '''sudo -u postgres psql -d postgres -c "SELECT cron.schedule('* * * * *'::text, 'INSERT INTO cron_test_log (message) VALUES (''Hello from pg_cron!'');'::text);"''')
+    assert result['succeeded'], f"Failed to schedule job: {result['stderr']}"
+    assert "1" in result['stdout'], "Expected schedule ID 1"
+
+    # Verify job is scheduled
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT * FROM cron.job;"')
+    assert result['succeeded'], f"Failed to query cron.job: {result['stderr']}"
+    assert "* * * * *" in result['stdout'], "Expected cron schedule pattern"
+    assert "INSERT INTO cron_test_log" in result['stdout'], "Expected cron command"
+    assert "postgres" in result['stdout'], "Expected postgres username"
+    assert "postgres" in result['stdout'], "Expected postgres database"
