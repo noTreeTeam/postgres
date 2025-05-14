@@ -469,22 +469,26 @@ EOF
     fi
 
     echo "10. Stopping postgres; running pg_upgrade"
-    # Extra work to ensure postgres is actually stopped
-    #  Mostly needed for PG12 projects with odd systemd unit behavior
+    # Stop PostgreSQL service
     if [ -z "$IS_CI" ]; then
-        retry 5 systemctl restart postgresql
-        systemctl disable postgresql
-        retry 5 systemctl stop postgresql
-
-        sleep 3
-        systemctl stop postgresql
+        echo "Stopping PostgreSQL service..."
         
-        # Additional check to ensure postgres is really stopped
-        if [ -f "${PGDATAOLD}/postmaster.pid" ]; then
-            echo "PostgreSQL still running, forcing stop..."
-            pid=$(head -n 1 "${PGDATAOLD}/postmaster.pid")
-            kill -9 "$pid" || true
-            rm -f "${PGDATAOLD}/postmaster.pid"
+        # Disable service first so it doesn't restart automatically
+        systemctl disable postgresql
+        
+        # Use systemctl stop with a longer timeout
+        if ! systemctl stop -t 120 postgresql; then
+            echo "Standard stop failed, trying one more time..."
+            sleep 5
+            systemctl stop -t 120 postgresql || true
+        fi
+        
+        # Quick verification
+        if systemctl is-active --quiet postgresql; then
+            echo "WARNING: PostgreSQL service still active after stop commands"
+            echo "You may need to investigate what's preventing proper shutdown"
+        else
+            echo "PostgreSQL successfully stopped"
         fi
     else
         CI_stop_postgres
