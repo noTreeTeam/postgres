@@ -465,24 +465,29 @@ EOF
     # Stop PostgreSQL service
     if [ -z "$IS_CI" ]; then
         echo "Stopping PostgreSQL service..."
-        
-        # Disable service first so it doesn't restart automatically
-        systemctl disable postgresql
-        
-        # Use systemctl stop with a longer timeout
-        if ! systemctl stop postgresql; then
-            echo "Standard stop failed, trying one more time..."
-            sleep 5
-            systemctl stop postgresql || true
+    systemctl disable postgresql
+
+    # Try graceful shutdown first
+    systemctl stop postgresql
+
+    # Add a verification loop to ensure the process is actually stopped
+    for i in {1..30}; do
+        if ! systemctl is-active --quiet postgresql; then
+            # Double check no postgres processes are running
+            if ! pgrep -x postgres > /dev/null; then
+                break
+            fi
         fi
-        
-        # Quick verification
-        if systemctl is-active --quiet postgresql; then
-            echo "WARNING: PostgreSQL service still active after stop commands"
-            echo "You may need to investigate what's preventing proper shutdown"
-        else
-            echo "PostgreSQL successfully stopped"
-        fi
+        echo "Waiting for PostgreSQL to stop... attempt $i"
+        sleep 2
+    done
+
+    # If still running after 60 seconds, try one final forceful stop
+    if systemctl is-active --quiet postgresql; then
+        echo "PostgreSQL still running after graceful shutdown attempts, forcing stop..."
+        systemctl stop postgresql || true
+        sleep 5
+    fi
     else
         CI_stop_postgres
     fi
