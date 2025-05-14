@@ -470,10 +470,10 @@ EOF
         systemctl disable postgresql
         
         # Use systemctl stop with a longer timeout
-        if ! systemctl stop -t 120 postgresql; then
+        if ! systemctl stop postgresql; then
             echo "Standard stop failed, trying one more time..."
             sleep 5
-            systemctl stop -t 120 postgresql || true
+            systemctl stop postgresql || true
         fi
         
         # Quick verification
