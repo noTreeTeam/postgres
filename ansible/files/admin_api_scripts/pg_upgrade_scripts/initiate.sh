@@ -426,14 +426,7 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     TMP_CONFIG="/tmp/pg_upgrade/postgresql.conf"
     cp "$POSTGRES_CONFIG_PATH" "$TMP_CONFIG"
  
-    # Check if max_slot_wal_keep_size exists in the config
-    if grep -q "max_slot_wal_keep_size" "$TMP_CONFIG"; then
-        # Find and replace the existing setting
-        sed -i 's/^\s*max_slot_wal_keep_size\s*=.*$/max_slot_wal_keep_size = -1/' "$TMP_CONFIG"
-    else
-       # Add the setting if not found
-       echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
-    fi
+    echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
 
     # Remove db_user_namespace if upgrading from PG15
     if [[ "$OLD_PGVERSION" =~ ^15.* && "$PGVERSION" =~ ^17.* ]]; then
