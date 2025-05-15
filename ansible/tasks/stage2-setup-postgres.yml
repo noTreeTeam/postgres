@@ -29,17 +29,9 @@
     - name: Remove specified extensions from supautils.conf if orioledb-17 or 17 build
       ansible.builtin.command:
         cmd: >
-          sed -i 's/ timescaledb,//g; s/ plv8,//g; s/ pgjwt,//g' 
+          sed -i 's/ timescaledb,//g; s/ plv8,//g' 
           /etc/postgresql-custom/supautils.conf
       when: is_psql_oriole or is_psql_17 and stage2_nix
-      become: yes
-
-    - name: Remove pgjwt from supautils.conf if 15 build
-      ansible.builtin.command:
-        cmd: >
-          sed -i 's/ pgjwt,//g' 
-          /etc/postgresql-custom/supautils.conf
-      when: is_psql_15 and stage2_nix
       become: yes
 
     - name: Remove db_user_namespace from postgresql.conf if orioledb-17 or 17 build
