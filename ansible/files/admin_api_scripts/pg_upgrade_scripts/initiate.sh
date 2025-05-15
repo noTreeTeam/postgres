@@ -427,13 +427,8 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
     cp "$POSTGRES_CONFIG_PATH" "$TMP_CONFIG"
  
     # Check if max_slot_wal_keep_size exists in the config
-    if grep -q "max_slot_wal_keep_size" "$TMP_CONFIG"; then
-        # Find and replace the existing setting
-        sed -i 's/^\s*max_slot_wal_keep_size\s*=.*$/max_slot_wal_keep_size = -1/' "$TMP_CONFIG"
-    else
        # Add the setting if not found
-       echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
-    fi
+    echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
 
     # Remove db_user_namespace if upgrading from PG15
     if [[ "$OLD_PGVERSION" =~ ^15.* && "$PGVERSION" =~ ^17.* ]]; then
@@ -479,13 +474,6 @@ EOF
         sleep 3
         systemctl stop postgresql
         
-        # Additional check to ensure postgres is really stopped
-        if [ -f "${PGDATAOLD}/postmaster.pid" ]; then
-            echo "PostgreSQL still running, forcing stop..."
-            pid=$(head -n 1 "${PGDATAOLD}/postmaster.pid")
-            kill -9 "$pid" || true
-            rm -f "${PGDATAOLD}/postmaster.pid"
-        fi
     else
         CI_stop_postgres
     fi
