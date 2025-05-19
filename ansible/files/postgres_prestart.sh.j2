@@ -51,9 +51,8 @@ get_pg_cron_version() {
         return
     fi
 
-    # Run jq from nixpkgs
     local version
-    version=$(nix run nixpkgs#jq -- -r '.pg_cron // empty' "/root/pg_extensions.json")
+    version=$(jq -r '.pg_cron // empty' "/root/pg_extensions.json")
     if [ -z "$version" ]; then
         log "pg_cron: Not specified in extensions file"
         return
