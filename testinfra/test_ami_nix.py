@@ -338,6 +338,16 @@ runcmd:
         except Exception as e:
             logger.warning(f"Error checking init.sh status: {str(e)}")
         
+        # Capture logs during initialization
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 --no-pager')
+        logger.info(f"PostgreSQL service logs during initialization:\n{result['stdout']}")
+        
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 | grep -i "prestart"')
+        logger.info(f"Prestart script execution logs during initialization:\n{result['stdout']}")
+        
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 | grep -i "switch_pg_cron_version"')
+        logger.info(f"Version switcher execution logs during initialization:\n{result['stdout']}")
+        
         attempt += 1
         logger.warning(f"Waiting for init.sh to complete (attempt {attempt}/{max_attempts})")
         sleep(5)
@@ -375,6 +385,18 @@ runcmd:
             ("kong", "sudo kong health"),
             ("fail2ban", "sudo fail2ban-client status"),
         ]
+
+        # Capture systemd logs during startup
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 --no-pager')
+        logger.info(f"PostgreSQL service logs during startup:\n{result['stdout']}")
+
+        # Check prestart script execution
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 | grep -i "prestart"')
+        logger.info(f"Prestart script execution logs:\n{result['stdout']}")
+
+        # Check version switcher execution
+        result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 | grep -i "switch_pg_cron_version"')
+        logger.info(f"Version switcher execution logs:\n{result['stdout']}")
 
         service_status = {}
         for service, command in health_checks:
@@ -583,12 +605,12 @@ def test_pg_cron_extension(host):
     ssh = host['ssh']
 
     # Check prestart script
-    result = run_ssh_command(ssh, 'ls -l /etc/postgresql/prestart.d/postgres_prestart.sh')
+    result = run_ssh_command(ssh, 'ls -l /usr/local/bin/postgres_prestart.sh')
     assert result['succeeded'], f"Failed to find prestart script: {result['stderr']}"
     logger.info(f"Prestart script details: {result['stdout']}")
 
     # Check if extensions file exists
-    result = run_ssh_command(ssh, 'cat /root/pg_extensions.json')
+    result = run_ssh_command(ssh, 'sudo cat /root/pg_extensions.json')
     assert result['succeeded'], f"Failed to read extensions file: {result['stderr']}"
     logger.info(f"Extensions file contents: {result['stdout']}")
 
@@ -596,6 +618,71 @@ def test_pg_cron_extension(host):
     result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version')
     assert result['succeeded'], f"Failed to find version switcher: {result['stderr']}"
     logger.info(f"Version switcher details: {result['stdout']}")
+
+    # Check if version switching worked correctly
+    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/lib/pg_cron.so')
+    logger.info(f"Current pg_cron library symlink: {result['stdout']}")
+    assert "pg_cron-1.3.1" in result['stdout'], "pg_cron library not pointing to version 1.3.1"
+
+    # Check the actual symlink target
+    result = run_ssh_command(ssh, 'readlink -f /var/lib/postgresql/.nix-profile/lib/pg_cron.so')
+    logger.info(f"Actual pg_cron library symlink target: {result['stdout']}")
+
+    # List all available pg_cron versions
+    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/lib/pg_cron-*')
+    logger.info(f"Available pg_cron versions: {result['stdout']}")
+
+    # Check if the target version exists
+    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/lib/pg_cron-1.3.1.so')
+    logger.info(f"Target version exists: {result['stdout']}")
+
+    result = run_ssh_command(ssh, 'cat /var/lib/postgresql/.nix-profile/share/postgresql/extension/pg_cron.control')
+    logger.info(f"pg_cron control file contents: {result['stdout']}")
+    assert "default_version = '1.3.1'" in result['stdout'], "pg_cron control file not set to version 1.3.1"
+
+    # Check prestart script execution
+    result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 50 | grep -i "prestart"')
+    logger.info(f"Prestart script execution logs: {result['stdout']}")
+
+    # Check systemd service status to see if prestart was attempted
+    result = run_ssh_command(ssh, 'sudo systemctl status postgresql@main')
+    logger.info(f"PostgreSQL service status: {result['stdout']}")
+
+    # Check if prestart script exists and is executable
+    result = run_ssh_command(ssh, 'ls -l /usr/local/bin/postgres_prestart.sh')
+    logger.info(f"Prestart script permissions: {result['stdout']}")
+
+    # Check prestart script contents
+    result = run_ssh_command(ssh, 'sudo cat /usr/local/bin/postgres_prestart.sh')
+    logger.info(f"Prestart script contents: {result['stdout']}")
+
+    # Check pg_cron worker process
+    result = run_ssh_command(ssh, 'ps aux | grep -i "pg_cron"')
+    logger.info(f"pg_cron worker processes: {result['stdout']}")
+
+    # Check PostgreSQL logs for any errors
+    result = run_ssh_command(ssh, 'sudo tail -n 100 /var/log/postgresql/postgresql.csv')
+    logger.info(f"PostgreSQL logs: {result['stdout']}")
+
+    # Check if version switcher was executed
+    result = run_ssh_command(ssh, 'sudo ls -l /var/lib/postgresql/.nix-profile/lib/pg_cron-*')
+    logger.info(f"Available pg_cron versions: {result['stdout']}")
+
+    # Check if version switcher has execute permissions
+    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version')
+    logger.info(f"Version switcher permissions: {result['stdout']}")
+
+    # Check if version switcher was called by prestart
+    result = run_ssh_command(ssh, 'sudo grep -r "switch_pg_cron_version" /var/log/postgresql/')
+    logger.info(f"Version switcher execution logs: {result['stdout']}")
+
+    # Check systemd service file to verify prestart configuration
+    result = run_ssh_command(ssh, 'sudo cat /etc/systemd/system/postgresql@.service')
+    logger.info(f"PostgreSQL service file: {result['stdout']}")
+
+    # Check if prestart script was called by systemd
+    result = run_ssh_command(ssh, 'sudo journalctl -u postgresql@main -n 100 | grep -i "executing"')
+    logger.info(f"Systemd execution logs: {result['stdout']}")
 
     # Create the extension
     result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
@@ -608,7 +695,7 @@ def test_pg_cron_extension(host):
     logger.info(f"pg_cron version: {result['stdout']}")
 
     # Check the actual function definition
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\sf cron.schedule"')
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\\sf cron.schedule"')
     assert result['succeeded'], f"Failed to get cron.schedule function definition: {result['stderr']}"
     logger.info(f"cron.schedule function definition: {result['stdout']}")
 
@@ -622,12 +709,12 @@ def test_pg_cron_extension(host):
     assert result['succeeded'], f"Failed to create test table: {result['stderr']}"
 
     # Check the schema of cron.job table
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\d cron.job"')
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\\d cron.job"')
     assert result['succeeded'], f"Failed to get cron.job schema: {result['stderr']}"
     logger.info(f"cron.job schema: {result['stdout']}")
 
     # Check available cron functions
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\df cron.*"')
+    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\\df cron.*"')
     assert result['succeeded'], f"Failed to get cron functions: {result['stderr']}"
     logger.info(f"Available cron functions: {result['stdout']}")
 

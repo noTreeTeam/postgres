@@ -1,5 +1,12 @@
 #!/bin/bash
 
+set -e  # Exit on error
+set -x  # Print commands
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
 check_orioledb_enabled() {
    local pg_conf="/etc/postgresql/postgresql.conf"
    if [ ! -f "$pg_conf" ]; then
@@ -29,7 +36,11 @@ update_orioledb_buffers() {
 check_extensions_file() {
     local extensions_file="/root/pg_extensions.json"
     if [ ! -f "$extensions_file" ]; then
-        echo "extensions: No extensions file found, skipping extensions versions check"
+        log "extensions: No extensions file found, skipping extensions versions check"
+        return 1
+    fi
+    if [ ! -r "$extensions_file" ]; then
+        log "extensions: Cannot read extensions file"
         return 1
     fi
     return 0
@@ -40,18 +51,20 @@ get_pg_cron_version() {
         return
     fi
 
+    # Run jq as postgres user since it's in their nix profile
     local version
     version=$(sudo -u postgres /var/lib/postgresql/.nix-profile/bin/jq -r '.pg_cron // empty' "/root/pg_extensions.json")
     if [ -z "$version" ]; then
-        echo "pg_cron: Not specified in extensions file"
+        log "pg_cron: Not specified in extensions file"
         return
     fi
 
     if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        echo "pg_cron: Invalid version format: $version"
+        log "pg_cron: Invalid version format: $version"
         return
     fi
 
+    log "pg_cron: Found version $version in extensions file"
     echo "$version"
 }
 
@@ -60,13 +73,20 @@ switch_pg_cron_version() {
     local switch_script="/var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version"
 
     if [ ! -x "$switch_script" ]; then
-        echo "pg_cron: No version switch script available"
-        return
+        log "pg_cron: No version switch script available at $switch_script"
+        return 1
     fi
 
-    echo "pg_cron: Switching to version $version"
+    log "pg_cron: Switching to version $version"
+    # Run as postgres user since we're modifying their nix profile
     sudo -u postgres "$switch_script" "$version"
-    echo "pg_cron: Version switch completed"
+    local exit_code=$?
+    if [ $exit_code -eq 0 ]; then
+        log "pg_cron: Version switch completed successfully"
+    else
+        log "pg_cron: Version switch failed with exit code $exit_code"
+    fi
+    return $exit_code
 }
 
 handle_pg_cron_version() {
@@ -78,6 +98,8 @@ handle_pg_cron_version() {
 }
 
 main() {
+   log "Starting prestart script"
+   
    # 1. pg_cron version handling 
    handle_pg_cron_version
 
@@ -90,6 +112,8 @@ main() {
    if [ ! -z "$shared_buffers_value" ]; then
        update_orioledb_buffers "$shared_buffers_value"
    fi
+
+   log "Prestart script completed"
 }
 
 # Initial locale setup
