@@ -114,8 +114,9 @@ stdenv.mkDerivation {
     fi
 
     VERSION=$1
-    LIB_DIR=$(dirname "$0")/../lib
-    EXTENSION_DIR=$(dirname "$0")/../share/postgresql/extension
+    NIX_PROFILE="/var/lib/postgresql/.nix-profile"
+    LIB_DIR="$NIX_PROFILE/lib"
+    EXTENSION_DIR="$NIX_PROFILE/share/postgresql/extension"
 
     # Check if version exists
     if [ ! -f "$LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}" ]; then
