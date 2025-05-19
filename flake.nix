@@ -154,6 +154,7 @@
           ./nix/ext/wrappers/default.nix
           ./nix/ext/supautils.nix
           ./nix/ext/plv8.nix
+          ./nix/ext/pg_partman.nix
         ];
 
         #Where we import and build the orioledb extension, we add on our custom extensions
