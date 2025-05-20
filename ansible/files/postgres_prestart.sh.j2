@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -e  # Exit on error
 set -x  # Print commands
 
 log() {
@@ -92,7 +91,8 @@ handle_pg_cron_version() {
     local version
     version=$(get_pg_cron_version)
     if [ -n "$version" ]; then
-        switch_pg_cron_version "$version"
+        # Don't fail if version switch fails
+        switch_pg_cron_version "$version" || log "pg_cron: Version switch failed but continuing"
     fi
 }
 
