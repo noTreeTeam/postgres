@@ -583,12 +583,12 @@ def test_pg_cron_extension(host):
     ssh = host['ssh']
 
     # Check prestart script
-    result = run_ssh_command(ssh, 'ls -l /etc/postgresql/prestart.d/postgres_prestart.sh')
+    result = run_ssh_command(ssh, 'ls -l /usr/local/bin/postgres_prestart.sh')
     assert result['succeeded'], f"Failed to find prestart script: {result['stderr']}"
     logger.info(f"Prestart script details: {result['stdout']}")
 
     # Check if extensions file exists
-    result = run_ssh_command(ssh, 'cat /root/pg_extensions.json')
+    result = run_ssh_command(ssh, 'sudo cat /root/pg_extensions.json')
     assert result['succeeded'], f"Failed to read extensions file: {result['stderr']}"
     logger.info(f"Extensions file contents: {result['stdout']}")
 
@@ -596,6 +596,33 @@ def test_pg_cron_extension(host):
     result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version')
     assert result['succeeded'], f"Failed to find version switcher: {result['stderr']}"
     logger.info(f"Version switcher details: {result['stdout']}")
+
+    # Check systemd service status
+    logger.info("Checking systemd service status...")
+    result = run_ssh_command(ssh, 'sudo systemctl list-units --type=service | grep postgres')
+    logger.info(f"PostgreSQL services: {result['stdout']}")
+    result = run_ssh_command(ssh, 'sudo systemctl status postgresql')
+    logger.info(f"PostgreSQL service status: {result['stdout']}")
+
+    # Restart PostgreSQL through systemd
+    logger.info("Restarting PostgreSQL through systemd...")
+    result = run_ssh_command(ssh, 'sudo systemctl stop postgresql')
+    logger.info(f"Stop result: {result['stdout']}")
+    result = run_ssh_command(ssh, 'sudo systemctl start postgresql')
+    logger.info(f"Start result: {result['stdout']}")
+    
+    # Wait for PostgreSQL to be ready
+    logger.info("Waiting for PostgreSQL to be ready...")
+    max_attempts = 30
+    for attempt in range(max_attempts):
+        result = run_ssh_command(ssh, 'sudo -u postgres /usr/bin/pg_isready -U postgres')
+        if result['succeeded']:
+            logger.info("PostgreSQL is ready")
+            break
+        logger.warning(f"PostgreSQL not ready yet (attempt {attempt + 1}/{max_attempts})")
+        sleep(2)
+    else:
+        raise Exception("PostgreSQL failed to start through systemd")
 
     # Create the extension
     result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
