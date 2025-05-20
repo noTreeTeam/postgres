@@ -62,8 +62,9 @@ get_pg_cron_version() {
         return
     fi
 
-    log "pg_cron: Found version $version in extensions file"
-    echo "$version"
+    # Log the version but don't include it in the output
+    log "pg_cron: Found version $version in extensions file" >&2
+    printf "%s" "$version"
 }
 
 switch_pg_cron_version() {
@@ -76,8 +77,8 @@ switch_pg_cron_version() {
     fi
 
     log "pg_cron: Switching to version $version"
-    # Run as postgres user since we're modifying their nix profile
-    sudo -u postgres "$switch_script" "$version"
+    # Run directly as root since we're already running as root
+    "$switch_script" "$version"
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
         log "pg_cron: Version switch completed successfully"

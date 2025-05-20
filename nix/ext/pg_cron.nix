@@ -115,7 +115,7 @@ stdenv.mkDerivation {
 
     VERSION=$1
     NIX_PROFILE="/var/lib/postgresql/.nix-profile"
-    LIB_DIR="$NIX_PROFILE/lib"
+    LIB_DIR="$out/lib"
     EXTENSION_DIR="$NIX_PROFILE/share/postgresql/extension"
 
     # Check if version exists
