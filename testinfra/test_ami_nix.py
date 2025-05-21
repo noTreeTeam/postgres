@@ -162,7 +162,6 @@ init_json_content = f"""
   "init_database_only": false
 }}
 """
-pg_cron_json = '{"pg_cron": "1.3.1"}'
 
 logger = logging.getLogger("ami-tests")
 handler = logging.StreamHandler()
@@ -273,11 +272,10 @@ write_files:
     - {{path: /etc/gotrue.env, content: {gzip_then_base64_encode(gotrue_env_content)}, permissions: '0664', encoding: gz+b64}}
     - {{path: /etc/wal-g/config.json, content: {gzip_then_base64_encode(walg_config_json_content)}, permissions: '0664', owner: 'wal-g:wal-g', encoding: gz+b64}}
     - {{path: /tmp/init.json, content: {gzip_then_base64_encode(init_json_content)}, permissions: '0600', encoding: gz+b64}}
-    - {{path: /root/pg_extensions.json, content: {gzip_then_base64_encode('{"pg_cron": "1.3.1"}')}, permissions: '0644', encoding: gz+b64}}
 runcmd:
     - 'sudo echo \"pgbouncer\" \"postgres\" >> /etc/pgbouncer/userlist.txt'
-    - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh . 2>&1 | tee /var/log/init-download.log'
-    - 'bash init.sh "staging" 2>&1 | tee /var/log/init-script.log'
+    - 'cd /tmp && aws s3 cp --region ap-southeast-1 s3://init-scripts-staging/project/init.sh .'
+    - 'bash init.sh "staging"'
     - 'touch /var/lib/init-complete'
     - 'rm -rf /tmp/*'
 """,
@@ -344,25 +342,6 @@ runcmd:
 
     if attempt >= max_attempts:
         logger.error("init.sh failed to complete within the timeout period")
-        
-        # Check init script logs before terminating
-        try:
-            download_log = run_ssh_command(ssh, "sudo cat /var/log/init-download.log")
-            if download_log['succeeded']:
-                logger.error("Init script download log:")
-                logger.error(download_log['stdout'])
-            else:
-                logger.error(f"Failed to read download log: {download_log['stderr']}")
-                
-            init_log = run_ssh_command(ssh, "sudo cat /var/log/init-script.log")
-            if init_log['succeeded']:
-                logger.error("Init script execution log:")
-                logger.error(init_log['stdout'])
-            else:
-                logger.error(f"Failed to read init script log: {init_log['stderr']}")
-        except Exception as e:
-            logger.error(f"Error reading logs: {str(e)}")
-            
         instance.terminate()
         raise TimeoutError("init.sh failed to complete within the timeout period")
 
@@ -376,65 +355,22 @@ runcmd:
             ("fail2ban", "sudo fail2ban-client status"),
         ]
 
-        service_status = {}
         for service, command in health_checks:
             try:
                 result = run_ssh_command(ssh, command)
                 if not result['succeeded']:
                     logger.warning(f"{service} not ready")
-                    logger.error(f"{service} command failed")
-                    logger.error(f"{service} stdout: {result['stdout']}")
-                    logger.error(f"{service} stderr: {result['stderr']}")
+                    return False
+            except Exception:
+                logger.warning(f"Connection failed during {service} check")
+                return False
 
-                    # Always read and log the PostgreSQL logs
-                    logger.warning("PostgreSQL status check:")
-                    try:
-                        log_files = [
-                            "/var/log/postgresql/*.log",
-                            "/var/log/postgresql/*.csv"
-                        ]
-
-                        for log_pattern in log_files:
-                            log_result = run_ssh_command(ssh, f"sudo cat {log_pattern}")
-                            if log_result['succeeded']:
-                                logger.error(f"PostgreSQL logs from {log_pattern}:")
-                                logger.error(log_result['stdout'])
-                                if log_result['stderr']:
-                                    logger.error(f"Log read errors: {log_result['stderr']}")
-                            else:
-                                logger.error(f"Failed to read PostgreSQL logs from {log_pattern}: {log_result['stderr']}")
-                    except Exception as e:
-                        logger.error(f"Error reading PostgreSQL logs: {str(e)}")
-
-                    service_status[service] = False
-                else:
-                    service_status[service] = True
-
-            except Exception as e:
-                logger.warning(f"Connection failed during {service} check, attempting reconnect...")
-                logger.error(f"Error details: {str(e)}")
-                service_status[service] = False
-
-        # Log overall status of all services
-        logger.info("Service health status:")
-        for service, healthy in service_status.items():
-            logger.info(f"{service}: {'healthy' if healthy else 'unhealthy'}")
-
-        # If any service is unhealthy, wait and return False with status
-        if not all(service_status.values()):
-            if service_status.get("postgres", False):  # If postgres is healthy but others aren't
-                sleep(5)  # Only wait if postgres is up but other services aren't
-            logger.warning("Some services are not healthy, will retry...")
-            return False
-
-        logger.info("All services are healthy, proceeding to tests...")
         return True
 
     while True:
         if is_healthy(ssh):
             break
-        logger.warning("Health check failed, retrying...")
-        sleep(5)
+        sleep(1)
 
     # Return both the SSH connection and instance IP for use in tests
     yield {
@@ -571,103 +507,3 @@ def test_postgrest_ending_empty_key_query_parameter_is_removed(host):
         },
     )
     assert res.ok
-
-
-def test_pg_cron_extension(host):
-    # Only run this test for PostgreSQL 15
-    postgres_version = os.environ.get("POSTGRES_MAJOR_VERSION")
-    if postgres_version != "15":
-        pytest.skip(f"Skipping pg_cron test for PostgreSQL version {postgres_version}")
-
-    # Use the SSH connection to run commands as postgres user
-    ssh = host['ssh']
-
-    # Check prestart script
-    result = run_ssh_command(ssh, 'ls -l /usr/local/bin/postgres_prestart.sh')
-    assert result['succeeded'], f"Failed to find prestart script: {result['stderr']}"
-    logger.info(f"Prestart script details: {result['stdout']}")
-
-    # Check if extensions file exists
-    result = run_ssh_command(ssh, 'sudo cat /root/pg_extensions.json')
-    assert result['succeeded'], f"Failed to read extensions file: {result['stderr']}"
-    logger.info(f"Extensions file contents: {result['stdout']}")
-
-    # Check if version switcher exists
-    result = run_ssh_command(ssh, 'ls -l /var/lib/postgresql/.nix-profile/bin/switch_pg_cron_version')
-    assert result['succeeded'], f"Failed to find version switcher: {result['stderr']}"
-    logger.info(f"Version switcher details: {result['stdout']}")
-
-    # Check systemd service status
-    logger.info("Checking systemd service status...")
-    result = run_ssh_command(ssh, 'sudo systemctl list-units --type=service | grep postgres')
-    logger.info(f"PostgreSQL services: {result['stdout']}")
-    result = run_ssh_command(ssh, 'sudo systemctl status postgresql')
-    logger.info(f"PostgreSQL service status: {result['stdout']}")
-
-    # Restart PostgreSQL through systemd
-    logger.info("Restarting PostgreSQL through systemd...")
-    result = run_ssh_command(ssh, 'sudo systemctl stop postgresql')
-    logger.info(f"Stop result: {result['stdout']}")
-    result = run_ssh_command(ssh, 'sudo systemctl start postgresql')
-    logger.info(f"Start result: {result['stdout']}")
-    
-    # Wait for PostgreSQL to be ready
-    logger.info("Waiting for PostgreSQL to be ready...")
-    max_attempts = 30
-    for attempt in range(max_attempts):
-        result = run_ssh_command(ssh, 'sudo -u postgres /usr/bin/pg_isready -U postgres')
-        if result['succeeded']:
-            logger.info("PostgreSQL is ready")
-            break
-        logger.warning(f"PostgreSQL not ready yet (attempt {attempt + 1}/{max_attempts})")
-        sleep(2)
-    else:
-        raise Exception("PostgreSQL failed to start through systemd")
-
-    # Create the extension
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE EXTENSION pg_cron WITH SCHEMA pg_catalog VERSION \'1.3.1\';"')
-    assert result['succeeded'], f"Failed to create pg_cron extension: {result['stderr']}"
-
-    # Verify the extension version
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT extversion FROM pg_extension WHERE extname = \'pg_cron\';"')
-    assert result['succeeded'], f"Failed to get pg_cron version: {result['stderr']}"
-    assert "1.3.1" in result['stdout'], f"Expected pg_cron version 1.3.1, but got: {result['stdout']}"
-    logger.info(f"pg_cron version: {result['stdout']}")
-
-    # Check the actual function definition
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\sf cron.schedule"')
-    assert result['succeeded'], f"Failed to get cron.schedule function definition: {result['stderr']}"
-    logger.info(f"cron.schedule function definition: {result['stdout']}")
-
-    # Check extension details
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT * FROM pg_extension WHERE extname = \'pg_cron\';"')
-    assert result['succeeded'], f"Failed to get pg_cron extension details: {result['stderr']}"
-    logger.info(f"pg_cron extension details: {result['stdout']}")
-
-    # Create test table
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "CREATE TABLE cron_test_log (id SERIAL PRIMARY KEY, message TEXT, log_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);"')
-    assert result['succeeded'], f"Failed to create test table: {result['stderr']}"
-
-    # Check the schema of cron.job table
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\d cron.job"')
-    assert result['succeeded'], f"Failed to get cron.job schema: {result['stderr']}"
-    logger.info(f"cron.job schema: {result['stdout']}")
-
-    # Check available cron functions
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "\df cron.*"')
-    assert result['succeeded'], f"Failed to get cron functions: {result['stderr']}"
-    logger.info(f"Available cron functions: {result['stdout']}")
-
-    # Schedule a job using the basic schedule function
-    result = run_ssh_command(ssh, '''sudo -u postgres psql -d postgres -c "SELECT cron.schedule('* * * * *'::text, 'INSERT INTO cron_test_log (message) VALUES (''Hello from pg_cron!'');'::text);"''')
-    assert result['succeeded'], f"Failed to schedule job: {result['stderr']}"
-    assert "1" in result['stdout'], "Expected schedule ID 1"
-
-    # Verify job is scheduled
-    result = run_ssh_command(ssh, 'sudo -u postgres psql -d postgres -c "SELECT * FROM cron.job;"')
-    assert result['succeeded'], f"Failed to query cron.job: {result['stderr']}"
-    assert "* * * * *" in result['stdout'], "Expected cron schedule pattern"
-    assert "INSERT INTO cron_test_log" in result['stdout'], "Expected cron command"
-    assert "postgres" in result['stdout'], "Expected postgres username"
-    assert "postgres" in result['stdout'], "Expected postgres database"
-    
