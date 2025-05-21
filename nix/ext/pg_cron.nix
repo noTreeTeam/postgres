@@ -115,8 +115,30 @@ stdenv.mkDerivation {
 
     VERSION=$1
     NIX_PROFILE="/var/lib/postgresql/.nix-profile"
-    LIB_DIR="$out/lib"
+    
+    # Follow the complete chain of symlinks to find the multi-version directory
+    CURRENT_LINK="$NIX_PROFILE/lib/pg_cron-$VERSION.so"
+    echo "Starting with link: $CURRENT_LINK"
+    
+    while [ -L "$CURRENT_LINK" ]; do
+        NEXT_LINK=$(readlink "$CURRENT_LINK")
+        echo "Following link: $NEXT_LINK"
+        if echo "$NEXT_LINK" | grep -q '^/'; then
+            CURRENT_LINK="$NEXT_LINK"
+        else
+            CURRENT_LINK="$(dirname "$CURRENT_LINK")/$NEXT_LINK"
+        fi
+        echo "Current link is now: $CURRENT_LINK"
+    done
+    
+    # The final link should be in the multi-version directory
+    MULTI_VERSION_DIR=$(dirname "$CURRENT_LINK")
+    echo "Found multi-version directory: $MULTI_VERSION_DIR"
+    LIB_DIR="$MULTI_VERSION_DIR"
     EXTENSION_DIR="$NIX_PROFILE/share/postgresql/extension"
+
+    echo "Looking for file: $LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}"
+    ls -la "$LIB_DIR" || true
 
     # Check if version exists
     if [ ! -f "$LIB_DIR/pg_cron-$VERSION${postgresql.dlSuffix}" ]; then
