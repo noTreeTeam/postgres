@@ -430,8 +430,8 @@ $(cat /etc/postgresql/pg_hba.conf)" > /etc/postgresql/pg_hba.conf
        # Add the setting if not found
     echo "max_slot_wal_keep_size = -1" >> "$TMP_CONFIG"
 
-    # Remove db_user_namespace if upgrading from PG15 or lower
-    if [[ "${OLD_PGVERSION%%.*}" -le 15 && "$PGVERSION" =~ ^17.* ]]; then
+    # Remove db_user_namespace if upgrading from PG15 or lower to PG16+
+    if [[ "${OLD_PGVERSION%%.*}" -le 15 && "${PGVERSION%%.*}" -ge 16 ]]; then
         sed -i '/^db_user_namespace/d' "$TMP_CONFIG"
     fi
 
