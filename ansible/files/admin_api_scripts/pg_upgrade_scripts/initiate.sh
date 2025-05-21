@@ -43,8 +43,8 @@ POST_UPGRADE_EXTENSION_SCRIPT="/tmp/pg_upgrade/pg_upgrade_extensions.sql"
 POST_UPGRADE_POSTGRES_PERMS_SCRIPT="/tmp/pg_upgrade/pg_upgrade_postgres_perms.sql"
 OLD_PGVERSION=$(run_sql -A -t -c "SHOW server_version;")
 
-# Skip locale settings if both versions are PostgreSQL 17+
-if ! [[ "$OLD_PGVERSION" =~ ^17.* && "$PGVERSION" =~ ^17.* ]]; then
+# Skip locale settings if both versions are PostgreSQL 16+
+if ! [[ "${OLD_PGVERSION%%.*}" -ge 16 && "${PGVERSION%%.*}" -ge 16 ]]; then
     SERVER_LC_COLLATE=$(run_sql -A -t -c "SHOW lc_collate;")
     SERVER_LC_CTYPE=$(run_sql -A -t -c "SHOW lc_ctype;")
 fi
@@ -403,7 +403,7 @@ function initiate_upgrade {
     rm -rf "${PGDATANEW:?}/"
 
     if [ "$IS_NIX_UPGRADE" = "true" ]; then
-        if [[ "$PGVERSION" =~ ^17.* ]]; then
+        if [[ "${PGVERSION%%.*}" -ge 16 ]]; then
             LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 LC_COLLATE=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $PGBINNEW/initdb --encoding=$SERVER_ENCODING --locale-provider=icu --icu-locale=en_US.UTF-8 -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
         else
             LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -c ". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $PGBINNEW/initdb --encoding=$SERVER_ENCODING --lc-collate=$SERVER_LC_COLLATE --lc-ctype=$SERVER_LC_CTYPE -L $PGSHARENEW -D $PGDATANEW/ --username=supabase_admin" -s "$SHELL" postgres
@@ -457,7 +457,7 @@ EOF
         UPGRADE_COMMAND=". /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh && $UPGRADE_COMMAND"
     fi 
 
-    if [[ "$PGVERSION" =~ ^17.* ]]; then
+    if [[ "${PGVERSION%%.*}" -ge 16 ]]; then
         GRN_PLUGINS_DIR=/var/lib/postgresql/.nix-profile/lib/groonga/plugins LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND --check" -s "$SHELL" postgres
     else
         GRN_PLUGINS_DIR=/var/lib/postgresql/.nix-profile/lib/groonga/plugins LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND --check" -s "$SHELL" postgres
@@ -479,7 +479,7 @@ EOF
     fi
 
     # Start the old PostgreSQL instance with version-specific options
-    if [[ "$PGVERSION" =~ ^17.* ]]; then
+    if [[ "${PGVERSION%%.*}" -ge 16 ]]; then
         GRN_PLUGINS_DIR=/var/lib/postgresql/.nix-profile/lib/groonga/plugins LC_ALL=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND" -s "$SHELL" postgres
     else
         GRN_PLUGINS_DIR=/var/lib/postgresql/.nix-profile/lib/groonga/plugins LC_ALL=en_US.UTF-8 LC_CTYPE=$SERVER_LC_CTYPE LC_COLLATE=$SERVER_LC_COLLATE LANGUAGE=en_US.UTF-8 LANG=en_US.UTF-8 LOCALE_ARCHIVE=/usr/lib/locale/locale-archive su -pc "$UPGRADE_COMMAND" -s "$SHELL" postgres
