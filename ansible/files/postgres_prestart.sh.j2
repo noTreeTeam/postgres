@@ -33,7 +33,7 @@ update_orioledb_buffers() {
 }
 
 check_extensions_file() {
-    local extensions_file="/root/pg_extensions.json"
+    local extensions_file="/root/pg-extensions.json"
     if [ ! -f "$extensions_file" ]; then
         log "extensions: No extensions file found, skipping extensions versions check"
         return 1
@@ -51,7 +51,7 @@ get_pg_cron_version() {
     fi
 
     local version
-    version=$(jq -r '.pg_cron // empty' "/root/pg_extensions.json")
+    version=$(jq -r '.pg_cron // empty' "/root/pg-extensions.json")
     if [ -z "$version" ]; then
         log "pg_cron: Not specified in extensions file"
         return
