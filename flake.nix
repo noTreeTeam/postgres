@@ -166,7 +166,11 @@
             x != ./nix/ext/timescaledb-2.9.1.nix &&
             x != ./nix/ext/plv8.nix
         ) ourExtensions;
-
+        pg14FilteredExtensions = builtins.filter
+          (
+            x:
+            x != ./nix/ext/pg_stat_monitor.nix
+          ) ourExtensions;
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
         dbExtensions17 = orioleFilteredExtensions;
         getPostgresqlPackage = version:
@@ -213,6 +217,8 @@
               then orioledbExtensions
               else if (builtins.elem version [ "17" ])
               then dbExtensions17
+              else if (builtins.elem version [ "14" ])
+              then pg14FilteredExtensions
               else ourExtensions;
           in
           map (path: pkgs.callPackage path { inherit postgresql; }) extensionsToUse;
@@ -326,6 +332,7 @@
               SHELL_PATH = "${pkgs.bash}/bin/bash";
               PGSQL_DEFAULT_PORT = "${pgsqlDefaultPort}";
               PGSQL_SUPERUSER = "${pgsqlSuperuser}";
+              PSQL14_BINDIR = "${basePackages.psql_14.bin}";
               PSQL15_BINDIR = "${basePackages.psql_15.bin}";
               PSQL17_BINDIR = "${basePackages.psql_17.bin}";
               PSQL_CONF_FILE = "${paths.pgconfigFile}";
@@ -392,6 +399,7 @@
 
             # Define the available PostgreSQL versions
             postgresVersions = {
+              psql_14 = makePostgres "14";
               psql_15 = makePostgres "15";
               psql_17 = makePostgres "17";
               psql_orioledb-17 = makePostgres "orioledb-17";
@@ -408,6 +416,7 @@
               pkgs.callPackage ./nix/ext/pg_regress.nix {
                 postgresql = postgresqlPackage;
               };
+            postgresql_14 = getPostgresqlPackage "14";
             postgresql_15 = getPostgresqlPackage "15";
             postgresql_17 = getPostgresqlPackage "17";
             postgresql_orioledb-17 = getPostgresqlPackage "orioledb-17";
@@ -418,6 +427,7 @@
             cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
             cargo-pgrx_0_12_9 = pkgs.cargo-pgrx.cargo-pgrx_0_12_9;
             # PostgreSQL versions.
+            psql_14 = postgresVersions.psql_14;
             psql_15 = postgresVersions.psql_15;
             psql_17 = postgresVersions.psql_17;
             psql_orioledb-17 = postgresVersions.psql_orioledb-17;
@@ -515,6 +525,7 @@
                 substitute ${./nix/tools/run-client.sh.in} $out/bin/start-postgres-client \
                   --subst-var-by 'PGSQL_DEFAULT_PORT' '${pgsqlDefaultPort}' \
                   --subst-var-by 'PGSQL_SUPERUSER' '${pgsqlSuperuser}' \
+                  --subst-var-by 'PSQL14_BINDIR' '${basePackages.psql_14.bin}' \
                   --subst-var-by 'PSQL15_BINDIR' '${basePackages.psql_15.bin}' \
                   --subst-var-by 'PSQL17_BINDIR' '${basePackages.psql_17.bin}' \
                   --subst-var-by 'PSQLORIOLEDB17_BINDIR' '${basePackages.psql_orioledb-17.bin}' \

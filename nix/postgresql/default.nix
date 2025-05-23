@@ -1,6 +1,7 @@
 self:
 let
   versions = {
+    postgresql_14 = ./14.nix;
     postgresql_15 = ./15.nix;
     postgresql_17 = ./17.nix;
     postgresql_orioledb-17 = ./orioledb-17.nix;
