@@ -12,21 +12,21 @@
 , git
 }:
 let
-  rustVersion = "1.84.0";
+  rustVersion = "1.85.1";
   cargo = rust-bin.stable.${rustVersion}.default;
 in
 buildPgrxExtension_0_12_9 rec {
   pname = "supabase-wrappers";
-  version = "0.5.0";
+  version = "0.5.1";
   # update the following array when the wrappers version is updated
   # required to ensure that extensions update scripts from previous versions are generated
-  previousVersions = ["0.4.6" "0.4.5" "0.4.4" "0.4.3" "0.4.2" "0.4.1" "0.4.0" "0.3.1" "0.3.0" "0.2.0" "0.1.19" "0.1.18" "0.1.17" "0.1.16" "0.1.15" "0.1.14" "0.1.12" "0.1.11" "0.1.10" "0.1.9" "0.1.8" "0.1.7" "0.1.6" "0.1.5" "0.1.4" "0.1.1" "0.1.0"];
+  previousVersions = ["0.5.0" "0.4.6" "0.4.5" "0.4.4" "0.4.3" "0.4.2" "0.4.1" "0.4.0" "0.3.1" "0.3.0" "0.2.0" "0.1.19" "0.1.18" "0.1.17" "0.1.16" "0.1.15" "0.1.14" "0.1.12" "0.1.11" "0.1.10" "0.1.9" "0.1.8" "0.1.7" "0.1.6" "0.1.5" "0.1.4" "0.1.1" "0.1.0"];
   inherit postgresql;
   src = fetchFromGitHub {
     owner = "supabase";
     repo = "wrappers";
     rev = "v${version}";
-    hash = "sha256-FbRTUcpEHBa5DI6dutvBeahYM0RZVAXIzIAZWIaxvn0";
+    hash = "sha256-3GfN3vZMFWf4FV/fSOe9ZN6KETmjoNw3Paz+JRzaH3c";
   };
  
   nativeBuildInputs = [ pkg-config cargo git ];
@@ -65,7 +65,8 @@ buildPgrxExtension_0_12_9 rec {
     lockFile = "${src}/Cargo.lock";
     allowBuiltinFetchGit = false;
     outputHashes = {
-      "clickhouse-rs-1.1.0-alpha.1" = "sha256-G+v4lNP5eK2U45D1fL90Dq24pUSlpIysNCxuZ17eac0=";
+      "clickhouse-rs-1.1.0-alpha.1" = "sha256-nKiGzdsAgJej8NgyVOqHaD1sZLrNF1RPfEhu2pRwZ6o";
+      "iceberg-0.5.0" = "sha256-dYPZdpP7kcp49UxsCZrZi3xMJ4rJiB8H65dMMR9Z1Yk";
     };
   };
 
@@ -80,7 +81,7 @@ buildPgrxExtension_0_12_9 rec {
       print
       getline
       if ($0 ~ /git =/) {
-        print "git = \"https://github.com/suharev7/clickhouse-rs/async-await\""
+        print "git = \"https://github.com/burmecia/clickhouse-rs/supabase-patch\""
       } else {
         print
       }
