@@ -33,6 +33,10 @@ if [ "$SYSTEM" = "aarch64-linux" ]; then
     nix build .#postgresql_orioledb-17_src -o ./postgresql_orioledb-17_src
     nix build .#postgresql_17_debug -o ./postgresql_17_debug
     nix build .#postgresql_17_src -o ./postgresql_17_src
+    nix build .#postgresql_14_debug -o ./postgresql_14_debug
+    nix build .#postgresql_14_src -o ./postgresql_14_src
+    nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./postgresql_14_debug-debug
+    nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key  ./postgresql_14_src
     nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./postgresql_15_debug-debug
     nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key  ./postgresql_15_src
     nix copy --to s3://nix-postgres-artifacts?secret-key=nix-secret-key ./postgresql_orioledb-17_debug-debug
