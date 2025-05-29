@@ -420,6 +420,34 @@
             postgresql_15 = getPostgresqlPackage "15";
             postgresql_17 = getPostgresqlPackage "17";
             postgresql_orioledb-17 = getPostgresqlPackage "orioledb-17";
+
+            # Function to create PostgreSQL source packages
+            mkPostgresSrc = name: pkg: pkgs.stdenv.mkDerivation {
+              pname = "postgresql-${name}-src";
+              version = pkg.version;
+              src = pkg.src;
+              nativeBuildInputs = [ pkgs.bzip2 ];
+
+              phases = [ "unpackPhase" "installPhase" ];
+
+              installPhase = ''
+                mkdir -p $out
+                cp -r . $out
+              '';
+
+              meta = with pkgs.lib; {
+                description = "PostgreSQL ${name} source files";
+                homepage = "https://www.postgresql.org/";
+                license = licenses.postgresql;
+                platforms = platforms.all;
+              };
+            };
+
+            # Create source packages for each PostgreSQL version
+            postgresql_14_src = mkPostgresSrc "14" postgresql_14;
+            postgresql_15_src = mkPostgresSrc "15" postgresql_15;
+            postgresql_17_src = mkPostgresSrc "17" postgresql_17;
+            postgresql_orioledb-17_src = mkPostgresSrc "orioledb-17" postgresql_orioledb-17;
           in
           postgresVersions // {
             supabase-groonga = supabase-groonga;
@@ -435,74 +463,15 @@
             wal-g-3 = wal-g-3;
             sfcgal = sfcgal;
             pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
-            inherit postgresql_15 postgresql_17 postgresql_orioledb-17;
+            inherit postgresql_14 postgresql_15 postgresql_17 postgresql_orioledb-17;
+            postgresql_14_debug = if pkgs.stdenv.isLinux then postgresql_14.debug else null;
             postgresql_15_debug = if pkgs.stdenv.isLinux then postgresql_15.debug else null;
             postgresql_17_debug = if pkgs.stdenv.isLinux then postgresql_17.debug else null;
             postgresql_orioledb-17_debug = if pkgs.stdenv.isLinux then postgresql_orioledb-17.debug else null;
-            postgresql_15_src = pkgs.stdenv.mkDerivation {
-              pname = "postgresql-15-src";
-              version = postgresql_15.version;
-
-              src = postgresql_15.src;
-
-              nativeBuildInputs = [ pkgs.bzip2 ];
-
-              phases = [ "unpackPhase" "installPhase" ];
-
-              installPhase = ''
-                mkdir -p $out
-                cp -r . $out
-              '';
-
-              meta = with pkgs.lib; {
-                description = "PostgreSQL 15 source files";
-                homepage = "https://www.postgresql.org/";
-                license = licenses.postgresql;
-                platforms = platforms.all;
-              };
-            };
-            postgresql_17_src = pkgs.stdenv.mkDerivation {
-              pname = "postgresql-17-src";
-              version = postgresql_17.version;
-              src = postgresql_17.src;
-
-              nativeBuildInputs = [ pkgs.bzip2 ];
-
-              phases = [ "unpackPhase" "installPhase" ];
-
-              installPhase = ''
-                mkdir -p $out
-                cp -r . $out
-              '';
-              meta = with pkgs.lib; {
-                description = "PostgreSQL 17 source files";
-                homepage = "https://www.postgresql.org/";
-                license = licenses.postgresql;
-                platforms = platforms.all;
-              };
-            };
-            postgresql_orioledb-17_src = pkgs.stdenv.mkDerivation {
-              pname = "postgresql-17-src";
-              version = postgresql_orioledb-17.version;
-
-              src = postgresql_orioledb-17.src;
-
-              nativeBuildInputs = [ pkgs.bzip2 ];
-
-              phases = [ "unpackPhase" "installPhase" ];
-
-              installPhase = ''
-                mkdir -p $out
-                cp -r . $out
-              '';
-
-              meta = with pkgs.lib; {
-                description = "PostgreSQL 15 source files";
-                homepage = "https://www.postgresql.org/";
-                license = licenses.postgresql;
-                platforms = platforms.all;
-              };
-            };
+            postgresql_14_src = postgresql_14_src;
+            postgresql_15_src = postgresql_15_src;
+            postgresql_17_src = postgresql_17_src;
+            postgresql_orioledb-17_src = postgresql_orioledb-17_src;
             mecab_naist_jdic = mecab-naist-jdic;
             supabase_groonga = supabase-groonga;
             pg_regress = makePgRegress activeVersion;
