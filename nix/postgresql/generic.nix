@@ -91,7 +91,6 @@ let
     nativeBuildInputs = [
       makeWrapper
       pkg-config
-      perl
     ]
       ++ lib.optionals jitSupport [ llvmPackages.llvm.dev nukeReferences patchelf ];
 
@@ -293,7 +292,7 @@ let
         postgresql.lib
         #TODO RM postgresql.man   # in case user installs this into environment
     ];
-    nativeBuildInputs = [ makeWrapper pkgs.perl ];
+    nativeBuildInputs = [ makeWrapper ];
 
 
     # We include /bin to ensure the $out/bin directory is created, which is
