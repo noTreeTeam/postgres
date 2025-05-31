@@ -123,6 +123,7 @@ let
     patches = [
       (if atLeast "16" then ./patches/relative-to-symlinks-16+.patch else ./patches/relative-to-symlinks.patch)
       ./patches/less-is-more.patch
+      ./patches/30.patch
       ./patches/paths-for-split-outputs.patch
       ./patches/specify_pkglibdir_at_runtime.patch
       ./patches/paths-with-postgresql-suffix.patch

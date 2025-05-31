@@ -1,0 +1,275 @@
+From 2ec5c5a0732431cf6b8b320c9ad698f2ec42ea32 Mon Sep 17 00:00:00 2001
+From: Nikolay Samokhvalov <nik@postgres.ai>
+Date: Fri, 30 May 2025 13:32:55 -0700
+Subject: [PATCH] Add --system-identifier option to pg_resetwal for PostgreSQL
+ 15
+
+---
+ doc/src/sgml/ref/pg_resetwal.sgml  | 34 ++++++++++++
+ src/bin/pg_resetwal/pg_resetwal.c  | 68 +++++++++++++++++++++++-
+ src/bin/pg_resetwal/t/001_basic.pl | 83 ++++++++++++++++++++++++++++++
+ 3 files changed, 184 insertions(+), 1 deletion(-)
+
+diff --git a/doc/src/sgml/ref/pg_resetwal.sgml b/doc/src/sgml/ref/pg_resetwal.sgml
+index fd539f56043..0eaa5c2b4f8 100644
+--- a/doc/src/sgml/ref/pg_resetwal.sgml
++++ b/doc/src/sgml/ref/pg_resetwal.sgml
+@@ -297,6 +297,40 @@ PostgreSQL documentation
+     </listitem>
+    </varlistentry>
+ 
++   <varlistentry>
++    <term><option>-s <replaceable class="parameter">sysid</replaceable></option></term>
++    <term><option>--system-identifier=<replaceable class="parameter">sysid</replaceable></option></term>
++    <listitem>
++     <para>
++      Manually set the database system identifier.
++     </para>
++
++     <para>
++      The system identifier is a unique 64-bit number that identifies the
++      database cluster. It is used by replication systems and backup tools
++      to ensure they are working with the correct cluster. Changing the
++      system identifier makes the cluster incompatible with existing
++      backups, standby servers, and replication setups. The system identifier
++      cannot be set to zero.
++     </para>
++
++     <para>
++      This option should only be used in recovery scenarios where you need
++      to make a restored cluster distinct from the original, or when cloning
++      a cluster for testing purposes. The value must be a positive 64-bit
++      integer and cannot be zero.
++     </para>
++
++     <para>
++      Unless the <option>--force</option> option is specified,
++      <command>pg_resetwal</command> will prompt for confirmation before
++      changing the system identifier, displaying both the current and new
++      values. In non-interactive environments, the <option>--force</option>
++      option must be used to proceed without confirmation.
++     </para>
++    </listitem>
++   </varlistentry>
++
+    <varlistentry>
+     <term><option>-u <replaceable class="parameter">xid</replaceable></option></term>
+     <term><option>--oldest-transaction-id=<replaceable class="parameter">xid</replaceable></option></term>
+diff --git a/src/bin/pg_resetwal/pg_resetwal.c b/src/bin/pg_resetwal/pg_resetwal.c
+index d4772a29650..2f4abaa5849 100644
+--- a/src/bin/pg_resetwal/pg_resetwal.c
++++ b/src/bin/pg_resetwal/pg_resetwal.c
+@@ -75,6 +75,7 @@ static uint32 minXlogTli = 0;
+ static XLogSegNo minXlogSegNo = 0;
+ static int	WalSegSz;
+ static int	set_wal_segsize;
++static uint64 set_sysid = 0;
+ 
+ static void CheckDataVersion(void);
+ static bool read_controlfile(void);
+@@ -102,6 +103,7 @@ main(int argc, char *argv[])
+ 		{"dry-run", no_argument, NULL, 'n'},
+ 		{"next-oid", required_argument, NULL, 'o'},
+ 		{"multixact-offset", required_argument, NULL, 'O'},
++		{"system-identifier", required_argument, NULL, 's'},
+ 		{"oldest-transaction-id", required_argument, NULL, 'u'},
+ 		{"next-transaction-id", required_argument, NULL, 'x'},
+ 		{"wal-segsize", required_argument, NULL, 1},
+@@ -137,7 +139,7 @@ main(int argc, char *argv[])
+ 	}
+ 
+ 
+-	while ((c = getopt_long(argc, argv, "c:D:e:fl:m:no:O:u:x:", long_options, NULL)) != -1)
++	while ((c = getopt_long(argc, argv, "c:D:e:fl:m:no:O:s:u:x:", long_options, NULL)) != -1)
+ 	{
+ 		switch (c)
+ 		{
+@@ -289,6 +291,32 @@ main(int argc, char *argv[])
+ 				log_fname = pg_strdup(optarg);
+ 				break;
+ 
++			case 's':
++				errno = 0;
++				if (optarg[0] == '-')
++				{
++					pg_log_error("invalid argument for option %s", "-s");
++					pg_log_error_hint("Try \"%s --help\" for more information.", progname);
++					exit(1);
++				}
++				set_sysid = strtou64(optarg, &endptr, 0);
++				if (endptr == optarg || *endptr != '\0' || errno == ERANGE)
++				{
++					if (errno == ERANGE)
++						pg_log_error("system identifier value is out of range");
++					else
++						pg_log_error("invalid argument for option %s", "-s");
++					pg_log_error_hint("Try \"%s --help\" for more information.", progname);
++					exit(1);
++				}
++				if (set_sysid == 0)
++				{
++					pg_log_error("system identifier must be greater than 0");
++					pg_log_error_hint("Try \"%s --help\" for more information.", progname);
++					exit(1);
++				}
++				break;
++
+ 			case 1:
+ 				errno = 0;
+ 				set_wal_segsize = strtol(optarg, &endptr, 10) * 1024 * 1024;
+@@ -455,6 +483,43 @@ main(int argc, char *argv[])
+ 	if (minXlogSegNo > newXlogSegNo)
+ 		newXlogSegNo = minXlogSegNo;
+ 
++	if (set_sysid != 0)
++	{
++		/* Safety check: prompt for confirmation when changing system identifier unless force flag is used */
++		if (!force)
++		{
++			char response[10];
++			
++			if (!isatty(fileno(stdin)))
++			{
++				pg_log_error("standard input is not a TTY and --force was not specified");
++				pg_log_error_hint("Cannot prompt for system identifier change confirmation in non-interactive mode. Use --force to proceed.");
++				exit(1);
++			}
++			
++			printf(_("WARNING: Changing the system identifier will make this cluster incompatible with existing backups and standby servers.\n"));
++			printf(_("Current system identifier: " UINT64_FORMAT "\n"), ControlFile.system_identifier);
++			printf(_("New system identifier: " UINT64_FORMAT "\n"), set_sysid);
++			printf(_("Continue? (y/n) "));
++			fflush(stdout);
++			
++			if (fgets(response, sizeof(response), stdin) == NULL ||
++				(response[0] != 'y' && response[0] != 'Y'))
++			{
++				printf(_("System identifier change cancelled.\n"));
++				exit(1);
++			}
++		}
++		
++		if (!noupdate)
++		{
++			printf(_("Changing system identifier from " UINT64_FORMAT " to " UINT64_FORMAT "\n"),
++				   ControlFile.system_identifier, set_sysid);
++		}
++		
++		ControlFile.system_identifier = set_sysid;
++	}
++
+ 	/*
+ 	 * If we had to guess anything, and -f was not given, just print the
+ 	 * guessed values and exit.  Also print if -n is given.
+@@ -1145,6 +1210,7 @@ usage(void)
+ 	printf(_("  -n, --dry-run                    no update, just show what would be done\n"));
+ 	printf(_("  -o, --next-oid=OID               set next OID\n"));
+ 	printf(_("  -O, --multixact-offset=OFFSET    set next multitransaction offset\n"));
++	printf(_("  -s, --system-identifier=SYSID    set system identifier (requires confirmation or --force)\n"));
+ 	printf(_("  -u, --oldest-transaction-id=XID  set oldest transaction ID\n"));
+ 	printf(_("  -V, --version                    output version information, then exit\n"));
+ 	printf(_("  -x, --next-transaction-id=XID    set next transaction ID\n"));
+diff --git a/src/bin/pg_resetwal/t/001_basic.pl b/src/bin/pg_resetwal/t/001_basic.pl
+index b4b192c86cc..e0342526164 100644
+--- a/src/bin/pg_resetwal/t/001_basic.pl
++++ b/src/bin/pg_resetwal/t/001_basic.pl
+@@ -7,6 +7,7 @@ use warnings;
+ use PostgreSQL::Test::Cluster;
+ use PostgreSQL::Test::Utils;
+ use Test::More;
++use IPC::Run;
+ 
+ program_help_ok('pg_resetwal');
+ program_version_ok('pg_resetwal');
+@@ -18,6 +19,88 @@ $node->init;
+ command_like([ 'pg_resetwal', '-n', $node->data_dir ],
+ 	qr/checkpoint/, 'pg_resetwal -n produces output');
+ 
++# Test system identifier option help text
++command_like([ 'pg_resetwal', '--help' ],
++	qr/system-identifier/, 'help text includes system identifier option');
++
++# Test invalid system identifier values
++command_fails_like(
++	[ 'pg_resetwal', '-s' => '0', $node->data_dir ],
++	qr/system identifier must be greater than 0/,
++	'zero system identifier value rejected');
++
++command_fails_like(
++	[ 'pg_resetwal', '-s' => '-1', $node->data_dir ],
++	qr/invalid argument for option -s/,
++	'negative system identifier value rejected');
++
++command_fails_like(
++	[ 'pg_resetwal', '-s' => 'abc', $node->data_dir ],
++	qr/invalid argument for option -s/,
++	'non-numeric system identifier value rejected');
++
++# Test overflow detection
++command_fails_like(
++	[ 'pg_resetwal', '-s' => '99999999999999999999999999999', $node->data_dir ],
++	qr/system identifier value is out of range/,
++	'overflow system identifier value rejected');
++
++# Test hexadecimal input (should fail - only decimal accepted)
++command_fails_like(
++	[ 'pg_resetwal', '-s' => '0x123456789ABCDEF0', $node->data_dir ],
++	qr/invalid argument for option -s/,
++	'hexadecimal system identifier input rejected');
++
++# Test leading/trailing whitespace (should fail)
++command_fails_like(
++	[ 'pg_resetwal', '-s' => ' 123456789 ', $node->data_dir ],
++	qr/invalid argument for option -s/,
++	'system identifier with whitespace rejected');
++
++# Test dry-run with system identifier
++command_like(
++	[ 'pg_resetwal', '-n', '-s' => '1234567890123456789', $node->data_dir ],
++	qr/New system identifier: 1234567890123456789/,
++	'dry-run shows new system identifier');
++
++# Test that system identifier change requires force flag when control values are guessed
++# Note: Interactive prompt testing is challenging due to stdin handling limitations
++command_fails_like(
++	[ 'pg_resetwal', '-s' => '1111111111111111111', $node->data_dir ],
++	qr/not proceeding because control file values were guessed/,
++	'system identifier change fails without force flag when control values are guessed');
++
++# Test non-TTY stdin handling (when stdin is not interactive)
++my $non_tty_test = sub {
++	my ($in, $out, $err) = ('', '', '');
++	my $h = IPC::Run::start(
++		[ 'pg_resetwal', '-s' => '2222222222222222222', $node->data_dir ],
++		'<', \$in, '>', \$out, '2>', \$err);
++	$h->finish();
++	return ($? >> 8, $out, $err);
++};
++
++my ($exit_code, $stdout, $stderr) = $non_tty_test->();
++like($stderr, qr/standard input is not a TTY/, 'non-TTY stdin properly detected');
++isnt($exit_code, 0, 'non-TTY stdin causes failure without --force');
++
++# Test actual system identifier change with force flag
++$node->stop;
++command_ok(
++	[ 'pg_resetwal', '-f', '-s' => '3333333333333333333', $node->data_dir ],
++	'system identifier change with force flag succeeds');
++
++# Verify the system identifier was actually changed
++command_like(
++	[ 'pg_resetwal', '-n', $node->data_dir ],
++	qr/Database system identifier:\s+3333333333333333333/,
++	'system identifier was actually changed');
++
++# Test that PostgreSQL can start with the new system identifier
++$node->start;
++my $result = $node->safe_psql('postgres', 'SELECT system_identifier FROM pg_control_system()');
++is($result, '3333333333333333333', 'PostgreSQL reports correct system identifier after change');
++$node->stop;
+ 
+ # Permissions on PGDATA should be default
+ SKIP:
+-- 
+GitLab
+
