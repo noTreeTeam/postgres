@@ -142,7 +142,7 @@
           # ./nix/ext/pgsql-http.nix
           # ./nix/ext/pg_plan_filter.nix
           # ./nix/ext/pg_net.nix
-          # ./nix/ext/pg_hashids.nix
+          ./nix/ext/pg_hashids.nix
           # ./nix/ext/pgsodium.nix
           # ./nix/ext/pg_graphql.nix
           # ./nix/ext/pg_stat_monitor.nix
@@ -339,7 +339,7 @@
               LOCALES = "${localeArchive}";
               EXTENSION_CUSTOM_SCRIPTS_DIR = "${paths.postgresqlExtensionCustomScriptsPath}";
               # MECAB_LIB = "${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so";
-              GROONGA_DIR = "${supabase-groonga}";
+              # GROONGA_DIR = "${supabase-groonga}";
               MIGRATIONS_DIR = "${paths.migrationsDir}";
               POSTGRESQL_SCHEMA_SQL = "${paths.postgresqlSchemaSql}";
               PGBOUNCER_AUTH_SCHEMA_SQL = "${paths.pgbouncerAuthSchemaSql}";
@@ -413,7 +413,7 @@
             postgresql_orioledb-17 = getPostgresqlPackage "orioledb-17";
           in
           postgresVersions // {
-            supabase-groonga = supabase-groonga;
+            # supabase-groonga = supabase-groonga;
             cargo-pgrx_0_11_3 = pkgs.cargo-pgrx.cargo-pgrx_0_11_3;
             cargo-pgrx_0_12_6 = pkgs.cargo-pgrx.cargo-pgrx_0_12_6;
             cargo-pgrx_0_12_9 = pkgs.cargo-pgrx.cargo-pgrx_0_12_9;
@@ -497,7 +497,7 @@
               };
             };
             mecab_naist_jdic = mecab-naist-jdic;
-            supabase_groonga = supabase-groonga;
+            # supabase_groonga = supabase-groonga;
             pg_regress = makePgRegress activeVersion;
             # Start a version of the server.
             start-server = makePostgresDevSetup {
@@ -1236,7 +1236,7 @@
                 start-postgres-server-bin
                 which
                 getkey-script
-                supabase-groonga
+                # supabase-groonga
               ];
             } ''
             set -e
