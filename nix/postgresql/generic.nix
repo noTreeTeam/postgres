@@ -73,6 +73,7 @@ let
       openssl
       (libxml2.override {python = python3;})
       icu
+      perl
     ]
       ++ lib.optionals (olderThan "13") [ libxcrypt ]
       ++ lib.optionals jitSupport [ llvmPackages.llvm ]
@@ -90,6 +91,7 @@ let
     nativeBuildInputs = [
       makeWrapper
       pkg-config
+      perl
     ]
       ++ lib.optionals jitSupport [ llvmPackages.llvm.dev nukeReferences patchelf ];
 
@@ -291,7 +293,7 @@ let
         postgresql.lib
         #TODO RM postgresql.man   # in case user installs this into environment
     ];
-    nativeBuildInputs = [ makeWrapper ];
+    nativeBuildInputs = [ makeWrapper pkgs.perl ];
 
 
     # We include /bin to ensure the $out/bin directory is created, which is

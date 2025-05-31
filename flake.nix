@@ -425,6 +425,7 @@
             wal-g-3 = wal-g-3;
             sfcgal = sfcgal;
             pg_prove = pkgs.perlPackages.TAPParserSourceHandlerpgTAP;
+            perl = pkgs.perl;
             inherit postgresql_15 postgresql_17 postgresql_orioledb-17;
             postgresql_15_debug = if pkgs.stdenv.isLinux then postgresql_15.debug else null;
             postgresql_17_debug = if pkgs.stdenv.isLinux then postgresql_17.debug else null;
@@ -436,6 +437,8 @@
               src = postgresql_15.src;
 
               nativeBuildInputs = [ pkgs.bzip2 pkgs.perl pkgs.perl5 ];
+              buildInputs = [ pkgs.bzip2 pkgs.perl pkgs.perl5 ];
+              propagatedBuildInputs = [ pkgs.bzip2 pkgs.perl pkgs.perl5 ];
 
               phases = [ "unpackPhase" "installPhase" ];
 
