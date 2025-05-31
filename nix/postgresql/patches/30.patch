@@ -59,7 +59,7 @@ diff --git a/src/bin/pg_resetwal/pg_resetwal.c b/src/bin/pg_resetwal/pg_resetwal
 index d4772a29650..2f4abaa5849 100644
 --- a/src/bin/pg_resetwal/pg_resetwal.c
 +++ b/src/bin/pg_resetwal/pg_resetwal.c
-@@ -75,6 +75,7 @@ static uint32 minXlogTli = 0;
+@@ -74,6 +74,7 @@ static uint32 minXlogTli = 0;
  static XLogSegNo minXlogSegNo = 0;
  static int	WalSegSz;
  static int	set_wal_segsize;

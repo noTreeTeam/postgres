@@ -123,37 +123,37 @@
         # rollout new versions of these critical things easier without having to
         # go through the upstream release engineering process.
         ourExtensions = [
-          ./nix/ext/rum.nix
-          ./nix/ext/timescaledb.nix
-          ./nix/ext/timescaledb-2.9.1.nix
-          ./nix/ext/pgroonga.nix
-          ./nix/ext/index_advisor.nix
-          ./nix/ext/wal2json.nix
-          ./nix/ext/pgmq.nix
-          ./nix/ext/pg_repack.nix
-          ./nix/ext/pg-safeupdate.nix
-          ./nix/ext/plpgsql-check.nix
-          ./nix/ext/pgjwt.nix
-          ./nix/ext/pgaudit.nix
-          ./nix/ext/postgis.nix
-          ./nix/ext/pgrouting.nix
-          ./nix/ext/pgtap.nix
-          ./nix/ext/pg_cron.nix
-          ./nix/ext/pgsql-http.nix
-          ./nix/ext/pg_plan_filter.nix
-          ./nix/ext/pg_net.nix
-          ./nix/ext/pg_hashids.nix
-          ./nix/ext/pgsodium.nix
-          ./nix/ext/pg_graphql.nix
-          ./nix/ext/pg_stat_monitor.nix
-          ./nix/ext/pg_jsonschema.nix
-          ./nix/ext/pgvector.nix
-          ./nix/ext/vault.nix
-          ./nix/ext/hypopg.nix
-          ./nix/ext/pg_tle.nix
-          ./nix/ext/wrappers/default.nix
-          ./nix/ext/supautils.nix
-          ./nix/ext/plv8.nix
+          # ./nix/ext/rum.nix
+          # ./nix/ext/timescaledb.nix
+          # ./nix/ext/timescaledb-2.9.1.nix
+          # ./nix/ext/pgroonga.nix
+          # ./nix/ext/index_advisor.nix
+          # ./nix/ext/wal2json.nix
+          # ./nix/ext/pgmq.nix
+          # ./nix/ext/pg_repack.nix
+          # ./nix/ext/pg-safeupdate.nix
+          # ./nix/ext/plpgsql-check.nix
+          # ./nix/ext/pgjwt.nix
+          # ./nix/ext/pgaudit.nix
+          # ./nix/ext/postgis.nix
+          # ./nix/ext/pgrouting.nix
+          # ./nix/ext/pgtap.nix
+          # ./nix/ext/pg_cron.nix
+          # ./nix/ext/pgsql-http.nix
+          # ./nix/ext/pg_plan_filter.nix
+          # ./nix/ext/pg_net.nix
+          # ./nix/ext/pg_hashids.nix
+          # ./nix/ext/pgsodium.nix
+          # ./nix/ext/pg_graphql.nix
+          # ./nix/ext/pg_stat_monitor.nix
+          # ./nix/ext/pg_jsonschema.nix
+          # ./nix/ext/pgvector.nix
+          # ./nix/ext/vault.nix
+          # ./nix/ext/hypopg.nix
+          # ./nix/ext/pg_tle.nix
+          # ./nix/ext/wrappers/default.nix
+          # ./nix/ext/supautils.nix
+          # ./nix/ext/plv8.nix
         ];
 
         #Where we import and build the orioledb extension, we add on our custom extensions
@@ -338,7 +338,7 @@
               PG_IDENT = "${paths.pgIdentConfigFile}";
               LOCALES = "${localeArchive}";
               EXTENSION_CUSTOM_SCRIPTS_DIR = "${paths.postgresqlExtensionCustomScriptsPath}";
-              MECAB_LIB = "${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so";
+              # MECAB_LIB = "${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so";
               GROONGA_DIR = "${supabase-groonga}";
               MIGRATIONS_DIR = "${paths.migrationsDir}";
               POSTGRESQL_SCHEMA_SQL = "${paths.postgresqlSchemaSql}";
@@ -435,7 +435,7 @@
 
               src = postgresql_15.src;
 
-              nativeBuildInputs = [ pkgs.bzip2 ];
+              nativeBuildInputs = [ pkgs.bzip2 pkgs.perl pkgs.perl5 ];
 
               phases = [ "unpackPhase" "installPhase" ];
 
