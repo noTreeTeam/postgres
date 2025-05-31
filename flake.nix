@@ -436,8 +436,6 @@
               src = postgresql_15.src;
 
               nativeBuildInputs = [ pkgs.bzip2 ];
-              buildInputs = [ pkgs.bzip2 ];
-              propagatedBuildInputs = [ pkgs.bzip2 ];
 
               phases = [ "unpackPhase" "installPhase" ];
 
@@ -1235,7 +1233,7 @@
                 start-postgres-server-bin
                 which
                 getkey-script
-                # supabase-groonga
+                supabase-groonga
               ];
             } ''
             set -e
