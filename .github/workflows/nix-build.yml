@@ -18,12 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: larger-runner-4cpu
-            arch: amd64
+          # - runner: larger-runner-4cpu
+          #   arch: amd64
           - runner: arm-runner
             arch: arm64
-          - runner: macos-latest
-            arch: arm64
+          # - runner: macos-latest
+          #   arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
