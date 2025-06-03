@@ -4,7 +4,7 @@
 , openssl
 , pkg-config
 , postgresql
-, buildPgrxExtension_0_12_9
+, buildPgrxExtension_0_14_3
 , cargo
 , darwin
 , jq
@@ -15,7 +15,8 @@ let
   rustVersion = "1.85.1";
   cargo = rust-bin.stable.${rustVersion}.default;
 in
-buildPgrxExtension_0_12_9 rec {
+buildPgrxExtension_0_14_3 rec {
+  auditable = false;
   pname = "supabase-wrappers";
   version = "0.5.1";
   # update the following array when the wrappers version is updated
@@ -66,7 +67,7 @@ buildPgrxExtension_0_12_9 rec {
     allowBuiltinFetchGit = false;
     outputHashes = {
       "clickhouse-rs-1.1.0-alpha.1" = "sha256-nKiGzdsAgJej8NgyVOqHaD1sZLrNF1RPfEhu2pRwZ6o";
-      "iceberg-0.5.0" = "sha256-dYPZdpP7kcp49UxsCZrZi3xMJ4rJiB8H65dMMR9Z1Yk";
+      "iceberg-0.5.0" = "sha256-dYPZdpP7kcp49UxsCZrZi3xMJ4rJiB8H65dMMR9Z1Yk=";
     };
   };
 
