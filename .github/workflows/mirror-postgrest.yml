@@ -18,6 +18,12 @@ jobs:
       postgrest_release: ${{ steps.args.outputs.result }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
       - id: args
         uses: mikefarah/yq@master
         with:
