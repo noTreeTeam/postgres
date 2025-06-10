@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 150
 
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
 
       - name: Get current branch SHA
         id: get_sha

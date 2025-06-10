@@ -23,7 +23,7 @@ jobs:
     outputs:
       postgres_versions: ${{ steps.set-versions.outputs.postgres_versions }}
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
       
       - uses: DeterminateSystems/nix-installer-action@main
 
@@ -41,7 +41,7 @@ jobs:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
 
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
 
       - uses: DeterminateSystems/nix-installer-action@main
 
@@ -91,7 +91,7 @@ jobs:
 
 
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
       
       - uses: DeterminateSystems/nix-installer-action@main
   

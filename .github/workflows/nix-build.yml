@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Check out code
-        uses: ./.github/workflows/shared-checkout.yml
+        uses: ./.github/actions/shared-checkout
 
       - name: aws-creds
         uses: aws-actions/configure-aws-credentials@v4

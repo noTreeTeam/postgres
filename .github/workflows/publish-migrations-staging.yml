@@ -15,7 +15,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
 
       - name: Merging migration files
         run: cat $(ls -1) > ../migration-output.sql

@@ -17,7 +17,7 @@ jobs:
     outputs:
       postgrest_release: ${{ steps.args.outputs.result }}
     steps:
-      - uses: ./.github/workflows/shared-checkout.yml
+      - uses: ./.github/actions/shared-checkout
 
       - id: args
         uses: mikefarah/yq@master
