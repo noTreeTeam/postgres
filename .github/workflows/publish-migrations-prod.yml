@@ -21,7 +21,8 @@ jobs:
         env:
           GITHUB_REF: ${{ github.ref }}
 
-      - uses: ./.github/actions/shared-checkout
+      - uses: actions/checkout@v4
+      - uses: ./.github/workflows/shared-checkout.yml
 
       - name: Merging migration files
         run: cat $(ls -1) > ../migration-output.sql

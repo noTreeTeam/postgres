@@ -27,8 +27,8 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
-      - name: Check out code
-        uses: ./.github/actions/shared-checkout
+      - uses: actions/checkout@v4
+      - uses: ./.github/workflows/shared-checkout.yml
 
       - name: aws-creds
         uses: aws-actions/configure-aws-credentials@v4
