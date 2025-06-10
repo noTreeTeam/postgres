@@ -309,6 +309,9 @@ runcmd:
         sleep(5)
         instance.reload()
 
+    print('---------------- InstanceID: ----------------')
+    print('---------------- ', instance.id)
+
     # Create single SSH connection
     ssh = get_ssh_connection(
         instance.public_ip_address,
