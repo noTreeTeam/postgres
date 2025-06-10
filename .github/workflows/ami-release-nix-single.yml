@@ -23,14 +23,7 @@ jobs:
     timeout-minutes: 150
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          fetch-tags: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/workflows/shared-checkout.yml
 
       - name: Get current branch SHA
         id: get_sha

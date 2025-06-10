@@ -27,15 +27,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
-
       - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          fetch-tags: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/workflows/shared-checkout.yml
+
       - name: aws-creds
         uses: aws-actions/configure-aws-credentials@v4
         with:
