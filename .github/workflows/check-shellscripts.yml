@@ -18,6 +18,12 @@ jobs:
     needs: checkout
     runs-on: ubuntu-latest
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
         env:

@@ -27,6 +27,12 @@ jobs:
     timeout-minutes: 150
 
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - name: Get current branch SHA
         id: get_sha
         run: |

@@ -21,6 +21,12 @@ jobs:
     outputs:
       postgrest_release: ${{ steps.args.outputs.result }}
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - id: args
         uses: mikefarah/yq@master
         with:

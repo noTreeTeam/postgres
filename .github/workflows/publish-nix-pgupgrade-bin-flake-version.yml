@@ -20,6 +20,12 @@ jobs:
     outputs:
       postgres_versions: ${{ steps.set-versions.outputs.postgres_versions }}
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - uses: DeterminateSystems/nix-installer-action@main
 
       - name: Set PostgreSQL versions
@@ -35,6 +41,12 @@ jobs:
       matrix:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - uses: DeterminateSystems/nix-installer-action@main
 
       - name: Grab release version
@@ -84,6 +96,12 @@ jobs:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
 
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - uses: DeterminateSystems/nix-installer-action@main
 
       - name: Grab release version

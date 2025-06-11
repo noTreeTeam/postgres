@@ -15,6 +15,12 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
+      - name: Download repository
+        uses: actions/download-artifact@v4
+        with:
+          name: repository
+          path: .
+
       - name: Load postgres_release values
         id: load_postgres_release
         uses: mikefarah/yq@master
