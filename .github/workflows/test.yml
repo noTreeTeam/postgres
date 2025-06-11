@@ -94,9 +94,15 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
       - name: verify schema.sql is committed
         run: |
+          # Save the original schema file
+          cp migrations/schema-${{ env.PGMAJOR }}.sql migrations/schema-${{ env.PGMAJOR }}.sql.original
+          
+          # Run dbmate-tool
           nix run github:supabase/postgres/${{ github.sha }}#dbmate-tool -- --version ${{ env.PGMAJOR }} --flake-url github:supabase/postgres/${{ github.sha }}
-          if ! git diff --exit-code --quiet migrations/schema-${{ env.PGMAJOR }}.sql; then
+          
+          # Compare the files
+          if ! cmp -s migrations/schema-${{ env.PGMAJOR }}.sql migrations/schema-${{ env.PGMAJOR }}.sql.original; then
             echo "Detected changes in schema.sql:"
-            git diff migrations/schema-${{ env.PGMAJOR }}.sql
+            diff -u migrations/schema-${{ env.PGMAJOR }}.sql.original migrations/schema-${{ env.PGMAJOR }}.sql
             exit 1
           fi
