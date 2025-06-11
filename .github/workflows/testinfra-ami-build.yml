@@ -23,10 +23,6 @@ jobs:
         with:
           name: repository
           path: .
-      - name: Set script permissions
-        run: |
-          chmod +x ebssurrogate/scripts/chroot-bootstrap-nix.sh
-          chmod +x ebssurrogate/scripts/surrogate-bootstrap-nix.sh
 
       - uses: DeterminateSystems/nix-installer-action@main
 
@@ -67,6 +63,11 @@ jobs:
         with:
           name: repository
           path: .
+
+      - name: Set script permissions
+        run: |
+          chmod +x ebssurrogate/scripts/chroot-bootstrap-nix.sh
+          chmod +x ebssurrogate/scripts/surrogate-bootstrap-nix.sh
 
       - uses: DeterminateSystems/nix-installer-action@main
 
