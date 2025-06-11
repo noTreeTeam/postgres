@@ -68,6 +68,7 @@ jobs:
         run: |
           chmod +x ebssurrogate/scripts/chroot-bootstrap-nix.sh
           chmod +x ebssurrogate/scripts/surrogate-bootstrap-nix.sh
+          chmod +x migrate.sh
 
       - uses: DeterminateSystems/nix-installer-action@main
 
