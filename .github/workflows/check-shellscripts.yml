@@ -11,12 +11,13 @@ permissions:
   contents: read
 
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   build:
+    needs: checkout
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
         env:

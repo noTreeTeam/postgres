@@ -11,14 +11,15 @@ permissions:
   id-token: write
 
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   prepare:
+    needs: checkout
     runs-on: ubuntu-latest
     outputs:
       postgres_versions: ${{ steps.set-versions.outputs.postgres_versions }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: Clear Nix cache
         run: |
           sudo rm -rf /home/runner/.cache/nix
@@ -48,10 +49,8 @@ jobs:
     env:
       POSTGRES_PORT: 5478
       POSTGRES_PASSWORD: password
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: Clear Nix cache
         run: |
           sudo rm -rf /home/runner/.cache/nix

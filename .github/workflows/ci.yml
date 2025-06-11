@@ -7,13 +7,14 @@ permissions:
   contents: read
 
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   check-release-version:
+    needs: checkout
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: Load postgres_release values
         id: load_postgres_release
         uses: mikefarah/yq@master

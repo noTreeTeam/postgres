@@ -12,14 +12,15 @@ permissions:
   contents: read
 
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   version:
+    needs: checkout
     runs-on: ubuntu-latest
     outputs:
       postgrest_release: ${{ steps.args.outputs.result }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - id: args
         uses: mikefarah/yq@master
         with:

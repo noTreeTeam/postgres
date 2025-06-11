@@ -13,7 +13,11 @@ permissions:
   id-token: write    
     
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   build-run-image:
+    needs: checkout
     strategy:
       fail-fast: false
       matrix:
@@ -27,9 +31,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: aws-creds
         uses: aws-actions/configure-aws-credentials@v4
         with:

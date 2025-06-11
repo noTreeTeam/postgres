@@ -7,7 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  checkout:
+    uses: ./.github/workflows/shared-checkout.yml
+
   build:
+    needs: checkout
     runs-on: [self-hosted, linux]
     timeout-minutes: 15
     permissions:
@@ -15,9 +19,6 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/workflows/shared-checkout.yml
-
       - name: Merging migration files
         run: cat $(ls -1) > ../migration-output.sql
         working-directory: ${{ github.workspace }}/migrations/db/migrations
