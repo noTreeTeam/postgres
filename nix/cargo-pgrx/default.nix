@@ -81,10 +81,5 @@ in
     hash = "sha256-3TsNpEqNm3Uol5XPW1i0XEbP2fF2+RKB2d7lO6BDnvQ=";
     cargoHash = "sha256-Ny7j56pwB+2eEK62X0nWfFKQy5fBz+Q1oyvecivxLkk=";
   };
-  cargo-pgrx_0_14_3 = generic {
-    version = "0.14.3";
-    hash = "sha256-3TsNpEqNm3Uol5XPW1i0XEbP2fF2+RKB2d7lO6BDnvQ=";
-    cargoHash = "sha256-Ny7j56pwB+2eEK62X0nWfFKQy5fBz+Q1oyvecivxLkk=";
-  };
   inherit rustPlatform;
 }

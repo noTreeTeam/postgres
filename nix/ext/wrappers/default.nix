@@ -18,7 +18,7 @@ in
 buildPgrxExtension_0_14_3 rec {
   auditable = false;
   pname = "supabase-wrappers";
-  version = "0.5.1";
+  version = "0.5.2";
   # update the following array when the wrappers version is updated
   # required to ensure that extensions update scripts from previous versions are generated
   previousVersions = ["0.5.0" "0.4.6" "0.4.5" "0.4.4" "0.4.3" "0.4.2" "0.4.1" "0.4.0" "0.3.1" "0.3.0" "0.2.0" "0.1.19" "0.1.18" "0.1.17" "0.1.16" "0.1.15" "0.1.14" "0.1.12" "0.1.11" "0.1.10" "0.1.9" "0.1.8" "0.1.7" "0.1.6" "0.1.5" "0.1.4" "0.1.1" "0.1.0"];
@@ -27,7 +27,7 @@ buildPgrxExtension_0_14_3 rec {
     owner = "supabase";
     repo = "wrappers";
     rev = "v${version}";
-    hash = "sha256-3GfN3vZMFWf4FV/fSOe9ZN6KETmjoNw3Paz+JRzaH3c";
+    hash = "";
   };
  
   nativeBuildInputs = [ pkg-config cargo git ];
@@ -67,7 +67,6 @@ buildPgrxExtension_0_14_3 rec {
     allowBuiltinFetchGit = false;
     outputHashes = {
       "clickhouse-rs-1.1.0-alpha.1" = "sha256-nKiGzdsAgJej8NgyVOqHaD1sZLrNF1RPfEhu2pRwZ6o";
-      "iceberg-0.5.0" = "sha256-dYPZdpP7kcp49UxsCZrZi3xMJ4rJiB8H65dMMR9Z1Yk=";
     };
   };
 
