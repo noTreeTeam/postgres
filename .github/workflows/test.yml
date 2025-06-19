@@ -1,9 +1,10 @@
 name: Test Database
 on:
-  push:
-    branches:
-      - develop
-  pull_request:
+  # Trigger this workflow when the "Nix CI" workflow completes
+  workflow_run:
+    workflows: ["Nix CI"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -12,17 +13,13 @@ permissions:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: large-linux-x86
     outputs:
       postgres_versions: ${{ steps.set-versions.outputs.postgres_versions }}
     steps:
       - name: Checkout Repo
         uses: supabase/postgres/.github/actions/shared-checkout@HEAD
-
-      - name: Clear Nix cache
-        run: |
-          sudo rm -rf /home/runner/.cache/nix
-
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: |
@@ -34,14 +31,15 @@ jobs:
           VERSIONS=$(nix run nixpkgs#yq -- '.postgres_major[]' ansible/vars.yml | nix run nixpkgs#jq -- -R -s -c "split(\"\n\")[:-1]")
           echo "postgres_versions=$VERSIONS" >> $GITHUB_OUTPUT
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     needs: prepare
     strategy:
       matrix:
         postgres_version: ${{ fromJson(needs.prepare.outputs.postgres_versions) }}
         include:
-          - runner: ubuntu-22.04
+          - runner: large-linux-x86
             arch: amd64
-          - runner: ubuntu-22.04
+          - runner: large-linux-arm
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
@@ -51,9 +49,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: supabase/postgres/.github/actions/shared-checkout@HEAD
-      - name: Clear Nix cache
-        run: |
-          sudo rm -rf /home/runner/.cache/nix
       - uses: DeterminateSystems/nix-installer-action@main
         with:
           extra-conf: |
