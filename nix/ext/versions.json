@@ -1,0 +1,18 @@
+{
+  "pgmq": {
+    "1.4.4": {
+      "postgresql": [
+        "15"
+      ],
+      "hash": "sha256-z+8/BqIlHwlMnuIzMz6eylmYbSmhtsNt7TJf/CxbdVw="
+    },
+    "1.5.1": {
+      "postgresql": [
+        "15",
+        "17"
+      ],
+      "hash": "sha256-IU+i6ONPwtgsFKdzya6E+222ualR66gkbb0lDr+7Rb8="
+    }  
+
+  }
+}
