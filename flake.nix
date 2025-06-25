@@ -1377,9 +1377,9 @@
         # The list of exported 'checks' that are run with every run of 'nix
         # flake check'. This is run in the CI system, as well.
         checks = {
-          psql_15 = makeCheckHarness basePackages.psql_15.bin;
-          psql_17 = makeCheckHarness basePackages.psql_17.bin;
-          psql_orioledb-17 = makeCheckHarness basePackages.psql_orioledb-17.bin;
+          psql_15 = basePackages.psql_15.bin;
+          psql_17 = basePackages.psql_17.bin;
+          psql_orioledb-17 = basePackages.psql_orioledb-17.bin;
           inherit (basePackages) wal-g-2 wal-g-3 dbmate-tool pg_regress;
         } // pkgs.lib.optionalAttrs (system == "aarch64-linux") {
           inherit (basePackages) postgresql_15_debug postgresql_15_src postgresql_orioledb-17_debug postgresql_orioledb-17_src postgresql_17_debug postgresql_17_src;
