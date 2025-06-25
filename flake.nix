@@ -1381,11 +1381,11 @@
           psql_17 = makeCheckHarness basePackages.psql_17.bin;
           psql_orioledb-17 = makeCheckHarness basePackages.psql_orioledb-17.bin;
           inherit (basePackages) wal-g-2 wal-g-3 dbmate-tool pg_regress;
-          devShell = devShells.default;
         } // pkgs.lib.optionalAttrs (system == "aarch64-linux") {
           inherit (basePackages) postgresql_15_debug postgresql_15_src postgresql_orioledb-17_debug postgresql_orioledb-17_src postgresql_17_debug postgresql_17_src;
         } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
           wrappers = import ./nix/ext/tests/wrappers.nix { inherit self; inherit pkgs; };
+          devShell = devShells.default;
         };
 
         # Apps is a list of names of things that can be executed with 'nix run';
