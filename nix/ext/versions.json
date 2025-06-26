@@ -1,0 +1,17 @@
+{
+  "pgroonga": {
+    "3.0.7": {
+      "postgresql": [
+        "15"
+      ],
+      "hash": "sha256-iF/zh4zDDpAw5fxW1WG8i2bfPt4VYsnYArwOoE/lwgM="
+    },
+    "3.2.5": {
+      "postgresql": [
+        "15",
+        "17"
+      ],
+      "hash": "sha256-GM9EOQty72hdE4Ecq8jpDudhZLiH3pP9ODLxs8DXcSY="
+    }
+  }
+}

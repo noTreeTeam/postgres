@@ -100,7 +100,7 @@
           paramiko
         ]);
         sfcgal = pkgs.callPackage ./nix/ext/sfcgal/sfcgal.nix { };
-        supabase-groonga = pkgs.callPackage ./nix/supabase-groonga.nix { };
+        supabase-groonga = pkgs.callPackage ./nix/ext/pgroonga/supabase-groonga-14.0.5.nix { };
         mecab-naist-jdic = pkgs.callPackage ./nix/ext/mecab-naist-jdic/default.nix { };
         inherit (pkgs.callPackage ./nix/wal-g.nix { }) wal-g-2 wal-g-3;
         # Our list of PostgreSQL extensions which come from upstream Nixpkgs.
@@ -132,7 +132,7 @@
           ./nix/ext/rum.nix
           ./nix/ext/timescaledb.nix
           ./nix/ext/timescaledb-2.9.1.nix
-          ./nix/ext/pgroonga.nix
+          ./nix/ext/pgroonga
           ./nix/ext/index_advisor.nix
           ./nix/ext/wal2json.nix
           ./nix/ext/pgmq.nix
@@ -344,7 +344,7 @@
               PG_IDENT = "${paths.pgIdentConfigFile}";
               LOCALES = "${localeArchive}";
               EXTENSION_CUSTOM_SCRIPTS_DIR = "${paths.postgresqlExtensionCustomScriptsPath}";
-              MECAB_LIB = "${basePackages.psql_15.exts.pgroonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so";
+              MECAB_LIB = "${supabase-groonga}/lib/groonga/plugins/tokenizers/tokenizer_mecab.so";
               GROONGA_DIR = "${supabase-groonga}";
               MIGRATIONS_DIR = "${paths.migrationsDir}";
               POSTGRESQL_SCHEMA_SQL = "${paths.postgresqlSchemaSql}";
@@ -1384,6 +1384,8 @@
           devShell = devShells.default;
         } // pkgs.lib.optionalAttrs (system == "aarch64-linux") {
           inherit (basePackages) postgresql_15_debug postgresql_15_src postgresql_orioledb-17_debug postgresql_orioledb-17_src postgresql_17_debug postgresql_17_src;
+        } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          pgroonga = import ./nix/ext/tests/pgroonga.nix { inherit self; inherit pkgs; };
         };
 
         # Apps is a list of names of things that can be executed with 'nix run';

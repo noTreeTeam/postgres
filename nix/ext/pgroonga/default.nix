@@ -10,13 +10,13 @@
   makeWrapper,
   xxHash,
   buildEnv,
+  system,
 }:
 let
-  supabase-groonga = callPackage ./supabase-groonga { };
   pname = "pgroonga";
 
   # Load version configuration from external file
-  allVersions = (builtins.fromJSON (builtins.readFile ./versions.json)).${pname};
+  allVersions = (builtins.fromJSON (builtins.readFile ../versions.json)).${pname};
 
   # Filter versions compatible with current PostgreSQL version
   supportedVersions = lib.filterAttrs (
@@ -40,6 +40,9 @@ let
   # Build function for individual versions
   build =
     version: hash:
+    let
+      supabase-groonga = callPackage ./supabase-groonga-14.0.5.nix { };
+    in
     stdenv.mkDerivation rec {
       inherit pname version;
 
@@ -131,9 +134,6 @@ let
             cp data/$ext--*--*.sql $out/share/postgresql/extension
           fi
         done
-
-        echo "Debug: Groonga plugins directory contents:"
-        ls -l ${supabase-groonga}/lib/groonga/plugins/tokenizers/
       '';
 
       meta = with lib; {
