@@ -159,7 +159,7 @@
           ./nix/ext/pg_tle.nix
           ./nix/ext/wrappers/default.nix
           ./nix/ext/supautils.nix
-          ./nix/ext/plv8.nix
+          ./nix/ext/plv8
         ];
 
         #Where we import and build the orioledb extension, we add on our custom extensions
@@ -170,7 +170,7 @@
             x:
             x != ./nix/ext/timescaledb.nix &&
             x != ./nix/ext/timescaledb-2.9.1.nix &&
-            x != ./nix/ext/plv8.nix
+            x != ./nix/ext/plv8/default.nix
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
@@ -1384,6 +1384,8 @@
           devShell = devShells.default;
         } // pkgs.lib.optionalAttrs (system == "aarch64-linux") {
           inherit (basePackages) postgresql_15_debug postgresql_15_src postgresql_orioledb-17_debug postgresql_orioledb-17_src postgresql_17_debug postgresql_17_src;
+        } // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          plv8 = import ./nix/ext/tests/plv8.nix { inherit self; inherit pkgs; };
         };
 
         # Apps is a list of names of things that can be executed with 'nix run';
