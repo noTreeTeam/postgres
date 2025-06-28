@@ -27,7 +27,7 @@
 
 - name: give supabase-admin-agent user permissions
   copy:
-    src: files/supabase-admin-agent_config/supabase-admin-agent.sudoers.conf
+    src: files/supabase_admin_agent_config/supabase-admin-agent.sudoers.conf
     dest: /etc/sudoers.d/supabase-admin-agent
     mode: "0644"
 
@@ -67,12 +67,12 @@
 
 - name: supabase-admin-agent - create salt systemd timer file
   copy:
-    src: files/supabase-admin-agent_config/supabase-admin-agent_salt.timer
+    src: files/supabase_admin_agent_config/supabase-admin-agent_salt.timer
     dest: /etc/systemd/system/supabase-admin-agent_salt.timer
 
 - name: supabase-admin-agent - create salt service file
   copy:
-    src: files/supabase-admin-agent_config/supabase-admin-agent_salt.service
+    src: files/supabase_admin_agent_config/supabase-admin-agent_salt.service
     dest: /etc/systemd/system/supabase-admin-agent_salt.service
 
 - name: supabase-admin-agent - reload systemd
