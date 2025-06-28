@@ -165,10 +165,13 @@
         #Where we import and build the orioledb extension, we add on our custom extensions
         # plus the orioledb option
         # we exclude plv8 in the orioledb-17 version or pg 17 of supabase extensions
+        # Exclude extensions not supported by PostgreSQL 17
         orioleFilteredExtensions = builtins.filter
           (
             x:
-            x != ./nix/ext/plv8.nix && x != ./nix/ext/timescaledb-2.9.1.nix
+            x != ./nix/ext/plv8.nix &&
+            x != ./nix/ext/timescaledb.nix &&
+            x != ./nix/ext/timescaledb-2.9.1.nix
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
