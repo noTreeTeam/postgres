@@ -10,6 +10,7 @@ Unmodified Postgres with some useful plugins. Our goal with this repo is not to 
 - ✅ [wal_level](https://www.postgresql.org/docs/current/runtime-config-wal.html) = logical and [max_replication_slots](https://www.postgresql.org/docs/current/runtime-config-replication.html) = 5. Ready for replication.
 - ✅ [Large Systems Extensions](https://github.com/aws/aws-graviton-getting-started#building-for-graviton-and-graviton2). Enabled for ARM images.
 - ✅ TimescaleDB 2.x enabled by default on supported PostgreSQL versions (15 and OrioleDB 17).
+
 ## Extensions
 
 ### PostgreSQL 15 Extensions
@@ -157,6 +158,9 @@ When updating this repository from the upstream Supabase fork, run
 `scripts/cleanup_workflows.sh` to remove cloud-specific GitHub workflows and keep
 only the minimal Docker publish action. The remaining workflow publishes images
 to `ghcr.io` using the GitHub Actions token.
+
+
+
 
 ## License
 
