@@ -243,9 +243,8 @@ orioledb_config_items() {
     if [[ "$1" = "orioledb-17" && "$CURRENT_SYSTEM" != "aarch64-darwin" ]]; then
         # Remove items from postgresql.conf
         echo "non-macos oriole conf"
-        sed -i 's/ timescaledb,//g;' "$DATDIR/postgresql.conf"
         sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
-        sed -i 's/ timescaledb,//g; s/ plv8,//g; s/ pgjwt,//g;' "$DATDIR/supautils.conf"
+        sed -i 's/ plv8,//g; s/ pgjwt,//g;' "$DATDIR/supautils.conf"
         sed -i 's/\(shared_preload_libraries.*\)'\''\(.*\)$/\1, orioledb'\''\2/' "$DATDIR/postgresql.conf"
         echo "default_table_access_method = 'orioledb'" >> "$DATDIR/postgresql.conf"
     elif [[ "$1" = "orioledb-17" && "$CURRENT_SYSTEM" = "aarch64-darwin" ]]; then
@@ -254,10 +253,8 @@ orioledb_config_items() {
         ls -la "$DATDIR"
         
         # Use perl instead of sed for macOS
-        perl -pi -e 's/ timescaledb,//g' "$DATDIR/postgresql.conf"
         perl -pi -e 's/db_user_namespace = off/#db_user_namespace = off/g' "$DATDIR/postgresql.conf"
-        
-        perl -pi -e 's/ timescaledb,//g' "$DATDIR/supautils.conf"
+
         perl -pi -e 's/ plv8,//g' "$DATDIR/supautils.conf"
         perl -pi -e 's/ pgjwt,//g' "$DATDIR/supautils.conf"
         perl -pi -e 's/(shared_preload_libraries\s*=\s*'\''.*?)'\''/\1, orioledb'\''/' "$DATDIR/postgresql.conf"
@@ -265,13 +262,10 @@ orioledb_config_items() {
         echo "default_table_access_method = 'orioledb'" >> "$DATDIR/postgresql.conf"
     elif [[ "$VERSION" == "17" && "$CURRENT_SYSTEM" != "aarch64-darwin" ]]; then
         echo "non-macos pg 17 conf"
-        sed -i 's/ timescaledb,//g;' "$DATDIR/postgresql.conf"
         sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
-        sed -i 's/ timescaledb,//g; s/ plv8,//g;' "$DATDIR/supautils.conf"
+        sed -i 's/ plv8,//g;' "$DATDIR/supautils.conf"
     elif [[ "$VERSION" == "17" && "$CURRENT_SYSTEM" = "aarch64-darwin" ]]; then
         perl -pi -e 's/db_user_namespace = off/#db_user_namespace = off/g;' "$DATDIR/postgresql.conf"
-        perl -pi -e 's/ timescaledb,//g' "$DATDIR/postgresql.conf"
-        perl -pi -e 's/ timescaledb,//g' "$DATDIR/supautils.conf"
         perl -pi -e 's/ plv8,//g;' "$DATDIR/supautils.conf"
     fi
 }

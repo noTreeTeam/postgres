@@ -164,13 +164,11 @@
 
         #Where we import and build the orioledb extension, we add on our custom extensions
         # plus the orioledb option
-        #we're not using timescaledb or plv8 in the orioledb-17 version or pg 17 of supabase extensions
+        # we exclude plv8 in the orioledb-17 version or pg 17 of supabase extensions
         orioleFilteredExtensions = builtins.filter
           (
             x:
-            x != ./nix/ext/timescaledb.nix &&
-            x != ./nix/ext/timescaledb-2.9.1.nix &&
-            x != ./nix/ext/plv8.nix
+            x != ./nix/ext/plv8.nix && x != ./nix/ext/timescaledb-2.9.1.nix
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
@@ -1258,15 +1256,7 @@
             echo "host all all 127.0.0.1/32 trust" >> $PGTAP_CLUSTER/pg_hba.conf
             echo "Checking shared_preload_libraries setting:"
             grep -rn "shared_preload_libraries" "$PGTAP_CLUSTER"/postgresql.conf
-            # Remove timescaledb if running orioledb-17 check
-            echo "I AM ${pgpkg.version}===================================================="
-            if [[ "${pgpkg.version}" == *"17"* ]]; then
-              perl -pi -e 's/ timescaledb,//g' "$PGTAP_CLUSTER/postgresql.conf"
-            fi
-            #NOTE in the future we may also need to add the orioledb extension to the cluster when cluster is oriole
-            echo "PGTAP_CLUSTER directory contents:"
-            ls -la "$PGTAP_CLUSTER"
-
+            # TimescaleDB available in all builds
             # Check if postgresql.conf exists
             if [ ! -f "$PGTAP_CLUSTER/postgresql.conf" ]; then
                 echo "postgresql.conf is missing!"
