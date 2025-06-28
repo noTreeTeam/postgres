@@ -155,7 +155,9 @@ TODO: find way to automate this
 
 When updating this repository from the upstream Supabase fork, run
 `scripts/cleanup_workflows.sh` to remove cloud-specific GitHub workflows and keep
-only the minimal Docker publish action.
+only the minimal Docker publish action. The remaining workflow publishes images
+to `ghcr.io` using the GitHub Actions token.
+
 
 ## License
 
