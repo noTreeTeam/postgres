@@ -158,6 +158,7 @@ When updating this repository from the upstream Supabase fork, run
 only the minimal Docker publish action. The remaining workflow publishes images
 to `ghcr.io` using the GitHub Actions token.
 
+
 ## License
 
 [The PostgreSQL License](https://opensource.org/licenses/postgresql). We realize that licensing is tricky since we are bundling all the various plugins. If we have infringed on any license, let us know and we will make the necessary changes (or remove that extension from this repo).
