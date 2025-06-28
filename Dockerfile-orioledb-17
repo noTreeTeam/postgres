@@ -14,7 +14,7 @@ ARG pgjwt_release=9742dab1b2f297ad3811120db7b21451bca2d3c9
 ARG pgsql_http_release=1.5.0
 ARG plpgsql_check_release=2.2.5
 ARG pg_safeupdate_release=1.4
-ARG timescaledb_release=2.9.1
+ARG timescaledb_release=2.16.1
 ARG wal2json_release=2_5
 ARG pljava_release=1.6.4
 ARG plv8_release=3.1.5
@@ -185,11 +185,8 @@ RUN sed -i \
     mkdir -p /etc/postgresql-custom && \
     chown postgres:postgres /etc/postgresql-custom
 
-    # Remove items from postgresql.conf
-RUN sed -i 's/ timescaledb,//g;' "/etc/postgresql/postgresql.conf" 
-    #as of pg 16.4 + this db_user_namespace totally deprecated and will break the server if setting is present
-RUN sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "/etc/postgresql/postgresql.conf" 
-RUN sed -i 's/ timescaledb,//g; s/ plv8,//g; s/ postgis,//g; s/ pgrouting,//g' "/etc/postgresql-custom/supautils.conf" 
+    # Adjust deprecated settings
+RUN sed -i 's/db_user_namespace = off/#db_user_namespace = off/g;' "/etc/postgresql/postgresql.conf"
 RUN sed -i 's/\(shared_preload_libraries.*\)'\''\(.*\)$/\1, orioledb'\''\2/' "/etc/postgresql/postgresql.conf" 
 RUN echo "default_table_access_method = 'orioledb'" >> "/etc/postgresql/postgresql.conf" 
 

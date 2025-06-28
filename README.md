@@ -9,7 +9,8 @@ Unmodified Postgres with some useful plugins. Our goal with this repo is not to 
 - ✅ Ubuntu 20.04 (Focal Fossa).
 - ✅ [wal_level](https://www.postgresql.org/docs/current/runtime-config-wal.html) = logical and [max_replication_slots](https://www.postgresql.org/docs/current/runtime-config-replication.html) = 5. Ready for replication.
 - ✅ [Large Systems Extensions](https://github.com/aws/aws-graviton-getting-started#building-for-graviton-and-graviton2). Enabled for ARM images.
-## Extensions 
+- ✅ TimescaleDB 2.x enabled by default.
+## Extensions
 
 ### PostgreSQL 15 Extensions
 | Extension | Version | Description |
@@ -149,6 +150,12 @@ TODO: find way to automate this
 - Show off a few of Postgres' most exciting features.
 - This is the same build we offer at [Supabase](https://supabase.io).
 - Open a github issue if you have a feature request
+
+## Fork Maintenance
+
+When updating this repository from the upstream Supabase fork, run
+`scripts/cleanup_workflows.sh` to remove cloud-specific GitHub workflows and keep
+only the minimal Docker publish action.
 
 ## License
 
