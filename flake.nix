@@ -112,11 +112,10 @@
           /*"postgis"*/
         ];
 
-        #FIXME for now, timescaledb is not included in the orioledb version of supabase extensions, as there is an issue
-        # with building timescaledb with the orioledb patched version of postgresql
+        # TimescaleDB is now re-enabled for orioledb builds
         orioledbPsqlExtensions = [
           /* pljava */
-          /*"timescaledb"*/
+          "timescaledb"
         ];
 
         # Custom extensions that exist in our repository. These aren't upstream
@@ -162,16 +161,12 @@
           ./nix/ext/plv8.nix
         ];
 
-        #Where we import and build the orioledb extension, we add on our custom extensions
-        # plus the orioledb option
-        # we exclude plv8 in the orioledb-17 version or pg 17 of supabase extensions
-        # Exclude extensions not supported by PostgreSQL 17
+        # Re-enable TimescaleDB for all PostgreSQL builds
+        # TimescaleDB support has been restored for PostgreSQL 17 and OrientDB builds
         orioleFilteredExtensions = builtins.filter
           (
             x:
-            x != ./nix/ext/plv8.nix &&
-            x != ./nix/ext/timescaledb.nix &&
-            x != ./nix/ext/timescaledb-2.9.1.nix
+            x != ./nix/ext/plv8.nix
         ) ourExtensions;
 
         orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
