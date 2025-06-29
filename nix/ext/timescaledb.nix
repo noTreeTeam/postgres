@@ -1,18 +1,25 @@
+# Use nixpkgs TimescaleDB if available, otherwise fallback to building from source
 { lib, stdenv, fetchFromGitHub, cmake, postgresql, openssl, libkrb5 }:
 
-stdenv.mkDerivation rec {
-  pname = "timescaledb-apache";
-  version = "2.16.1";
+# Try to use the prebuilt TimescaleDB from nixpkgs first
+# This provides TimescaleDB 2.19.3+ and avoids build times
+if postgresql.pkgs ? timescaledb-apache then
+  postgresql.pkgs.timescaledb-apache
+else 
+  # Fallback to building from source (TimescaleDB 2.17.0)
+  stdenv.mkDerivation rec {
+    pname = "timescaledb-apache";
+    version = "2.17.0";
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ postgresql openssl libkrb5 ];
+    nativeBuildInputs = [ cmake ];
+    buildInputs = [ postgresql openssl libkrb5 ];
 
-  src = fetchFromGitHub {
-    owner = "timescale";
-    repo = "timescaledb";
-    rev = version;
-    hash = "sha256-sLxWdBmih9mgiO51zLLxn9uwJVYc5JVHJjSWoADoJ+w=";
-  };
+    src = fetchFromGitHub {
+      owner = "timescale";
+      repo = "timescaledb";
+      rev = version;
+      hash = "sha256-6e/PdHpCXn5Dxdip8ICG+vXxezDATQkwHqDqkt7SS48=";
+    };
 
   cmakeFlags = [ "-DSEND_TELEMETRY_DEFAULT=OFF" "-DREGRESS_CHECKS=OFF" "-DTAP_CHECKS=OFF" "-DAPACHE_ONLY=1" ]
     ++ lib.optionals stdenv.isDarwin [ "-DLINTER=OFF" ];
