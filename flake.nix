@@ -112,7 +112,7 @@
           /*"postgis"*/
         ];
 
-        # TimescaleDB is now re-enabled for orioledb builds
+        # Re-enable TimescaleDB for orioledb builds with proper version compatibility
         orioledbPsqlExtensions = [
           /* pljava */
           "timescaledb"
@@ -161,16 +161,32 @@
           ./nix/ext/plv8.nix
         ];
 
-        # Re-enable TimescaleDB for all PostgreSQL builds
-        # TimescaleDB support has been restored for PostgreSQL 17 and OrientDB builds
-        orioleFilteredExtensions = builtins.filter
+        # Create version-specific extension lists to handle TimescaleDB compatibility
+        # TimescaleDB 2.9.1 only supports PostgreSQL 12-15
+        # TimescaleDB 2.16.1 supports PostgreSQL 13-17
+        
+        # Extensions for PostgreSQL 15 and older (includes TimescaleDB 2.9.1, excludes 2.16.1)
+        extensionsForPG15AndOlder = builtins.filter
           (
             x:
-            x != ./nix/ext/plv8.nix
+            x != ./nix/ext/plv8.nix &&
+            x != ./nix/ext/timescaledb.nix  # Exclude TimescaleDB 2.16.1 for PG15
+        ) ourExtensions;
+        
+        # Extensions for PostgreSQL 17 (includes TimescaleDB 2.16.1, excludes 2.9.1)
+        extensionsForPG17 = builtins.filter
+          (
+            x:
+            x != ./nix/ext/plv8.nix &&
+            x != ./nix/ext/timescaledb-2.9.1.nix  # Exclude TimescaleDB 2.9.1 for PG17
         ) ourExtensions;
 
-        orioledbExtensions = orioleFilteredExtensions ++ [ ./nix/ext/orioledb.nix ];
-        dbExtensions17 = orioleFilteredExtensions;
+        # Extensions for OrientDB builds (same as PG17 + orioledb)
+        orioledbExtensions = extensionsForPG17 ++ [ ./nix/ext/orioledb.nix ];
+        
+        # Legacy compatibility
+        orioleFilteredExtensions = extensionsForPG17;
+        dbExtensions17 = extensionsForPG17;
         getPostgresqlPackage = version:
           pkgs.postgresql."postgresql_${version}";
         # Create a 'receipt' file for a given postgresql package. This is a way
@@ -214,8 +230,8 @@
               if (builtins.elem version [ "orioledb-17" ])
               then orioledbExtensions
               else if (builtins.elem version [ "17" ])
-              then dbExtensions17
-              else ourExtensions;
+              then extensionsForPG17
+              else extensionsForPG15AndOlder; # PostgreSQL 15 and older
           in
           map (path: pkgs.callPackage path { inherit postgresql; }) extensionsToUse;
 
