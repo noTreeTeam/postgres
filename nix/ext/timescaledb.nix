@@ -11,7 +11,7 @@ if useNixpkgsFallback then
   # Use a simplified TimescaleDB build for containerized environments
   stdenv.mkDerivation rec {
     pname = "timescaledb-apache";
-    version = "2.19.3";
+    version = "2.20.3";
 
     nativeBuildInputs = [ cmake ];
     buildInputs = [ postgresql openssl libkrb5 ];
@@ -20,7 +20,7 @@ if useNixpkgsFallback then
       owner = "timescale";
       repo = "timescaledb";
       rev = version;
-      hash = "sha256-PLACEHOLDER"; # This will need to be updated with actual hash
+      hash = "sha256-Ma6h2ISMjBz14y5Pbx4T4QOMrrvUy5wkPyKawm9rpx0=";
     };
 
     cmakeFlags = [ 
