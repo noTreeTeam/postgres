@@ -8,9 +8,9 @@ let
 in
 
 if useNixpkgsFallback then
-  # Use a simplified TimescaleDB build for containerized environments
+  # Use a simplified TimescaleDB build for containerized environments with full TSL features
   stdenv.mkDerivation rec {
-    pname = "timescaledb-apache";
+    pname = "timescaledb";
     version = "2.20.3";
 
     nativeBuildInputs = [ cmake ];
@@ -27,7 +27,6 @@ if useNixpkgsFallback then
       "-DSEND_TELEMETRY_DEFAULT=OFF" 
       "-DREGRESS_CHECKS=OFF" 
       "-DTAP_CHECKS=OFF" 
-      "-DAPACHE_ONLY=1"
       "-DUSE_OPENSSL=1"
     ] ++ lib.optionals stdenv.isDarwin [ "-DLINTER=OFF" ];
 
@@ -45,16 +44,16 @@ if useNixpkgsFallback then
     '';
 
     meta = with lib; {
-      description = "Scales PostgreSQL for time-series data (containerized build)";
+      description = "Scales PostgreSQL for time-series data with full TSL features (containerized build)";
       homepage = "https://www.timescale.com/";
       platforms = postgresql.meta.platforms;
-      license = licenses.asl20;
+      license = licenses.tsl;
     };
   }
 else 
-  # Full TimescaleDB build for development environments (TimescaleDB 2.17.0)
+  # Full TimescaleDB build for development environments with TSL features (TimescaleDB 2.17.0)
   stdenv.mkDerivation rec {
-    pname = "timescaledb-apache";
+    pname = "timescaledb";
     version = "2.17.0";
 
     nativeBuildInputs = [ cmake ];
@@ -67,7 +66,7 @@ else
       hash = "sha256-6e/PdHpCXn5Dxdip8ICG+vXxezDATQkwHqDqkt7SS48=";
     };
 
-  cmakeFlags = [ "-DSEND_TELEMETRY_DEFAULT=OFF" "-DREGRESS_CHECKS=OFF" "-DTAP_CHECKS=OFF" "-DAPACHE_ONLY=1" ]
+  cmakeFlags = [ "-DSEND_TELEMETRY_DEFAULT=OFF" "-DREGRESS_CHECKS=OFF" "-DTAP_CHECKS=OFF" ]
     ++ lib.optionals stdenv.isDarwin [ "-DLINTER=OFF" ];
 
   # Fix the install phase which tries to install into the pgsql extension dir,
@@ -89,7 +88,7 @@ else
     homepage = "https://www.timescale.com/";
     changelog = "https://github.com/timescale/timescaledb/blob/${version}/CHANGELOG.md";
     platforms = postgresql.meta.platforms;
-    license = licenses.asl20;
+    license = licenses.tsl;
     broken = versionOlder postgresql.version "13";
   };
 }
