@@ -193,7 +193,7 @@ COPY ansible/files/stat_extension.sql /docker-entrypoint-initdb.d/migrations/00-
 # # Add upstream entrypoint script
 COPY --from=gosu /usr/local/bin/gosu /usr/local/bin/gosu
 ADD --chmod=0755 \
-    https://github.com/docker-library/postgres/raw/master/15/bullseye/docker-entrypoint.sh \
+    https://github.com/docker-library/postgres/raw/master/15/bookworm/docker-entrypoint.sh \
     /usr/local/bin/docker-entrypoint.sh
 
 RUN mkdir -p /var/run/postgresql && chown postgres:postgres /var/run/postgresql
