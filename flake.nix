@@ -162,15 +162,15 @@
         ];
 
         # Create version-specific extension lists to handle TimescaleDB compatibility
-        # TimescaleDB 2.9.1 supports PostgreSQL 12-15
-        # TimescaleDB 2.17.0 supports PostgreSQL 13-17 (first version with PG 17 support)
-        
-        # Extensions for PostgreSQL 15 and older (includes TimescaleDB 2.9.1, excludes 2.17.0)
+        # TimescaleDB 2.20.3 (timescaledb.nix) supports PostgreSQL 13+ with full TSL features
+        # TimescaleDB 2.9.1 (timescaledb-2.9.1.nix) is Apache-only — excluded from all builds
+
+        # Extensions for PostgreSQL 15 (uses TimescaleDB TSL 2.20.3, same as PG17)
         extensionsForPG15AndOlder = builtins.filter
           (
             x:
             x != ./nix/ext/plv8.nix &&
-            x != ./nix/ext/timescaledb.nix  # Exclude TimescaleDB 2.17.0 for PG15
+            x != ./nix/ext/timescaledb-2.9.1.nix  # Exclude Apache-only build; use TSL timescaledb.nix instead
         ) ourExtensions;
         
         # Extensions for PostgreSQL 17 (includes TimescaleDB 2.17.0, excludes older versions)
