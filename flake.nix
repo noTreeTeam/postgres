@@ -131,6 +131,7 @@
           ./nix/ext/rum.nix
           ./nix/ext/timescaledb.nix
           ./nix/ext/timescaledb-2.9.1.nix
+          ./nix/ext/timescaledb-tsl-pg15.nix
           ./nix/ext/pgroonga.nix
           ./nix/ext/index_advisor.nix
           ./nix/ext/wal2json.nix
@@ -162,23 +163,26 @@
         ];
 
         # Create version-specific extension lists to handle TimescaleDB compatibility
-        # TimescaleDB 2.20.3 (timescaledb.nix) supports PostgreSQL 13+ with full TSL features
-        # TimescaleDB 2.9.1 (timescaledb-2.9.1.nix) is Apache-only — excluded from all builds
+        # timescaledb.nix (2.20.3) — TSL, PG16-17 only (2.20.x dropped PG15 support)
+        # timescaledb-tsl-pg15.nix (2.17.0) — TSL, PG13-16 compatible
+        # timescaledb-2.9.1.nix — Apache-only (-DAPACHE_ONLY=1), excluded from all builds
 
-        # Extensions for PostgreSQL 15 (uses TimescaleDB TSL 2.20.3, same as PG17)
+        # Extensions for PostgreSQL 15 (uses TimescaleDB TSL 2.17.0 via timescaledb-tsl-pg15.nix)
         extensionsForPG15AndOlder = builtins.filter
           (
             x:
             x != ./nix/ext/plv8.nix &&
-            x != ./nix/ext/timescaledb-2.9.1.nix  # Exclude Apache-only build; use TSL timescaledb.nix instead
+            x != ./nix/ext/timescaledb-2.9.1.nix &&  # Exclude Apache-only build
+            x != ./nix/ext/timescaledb.nix            # Exclude 2.20.3 (no PG15 support); use timescaledb-tsl-pg15.nix instead
         ) ourExtensions;
         
-        # Extensions for PostgreSQL 17 (includes TimescaleDB 2.17.0, excludes older versions)
+        # Extensions for PostgreSQL 17 (uses timescaledb.nix 2.20.3, excludes PG15-specific and Apache-only)
         extensionsForPG17 = builtins.filter
           (
             x:
             x != ./nix/ext/plv8.nix &&
-            x != ./nix/ext/timescaledb-2.9.1.nix  # Exclude TimescaleDB 2.9.1 (use 2.17.0 instead for PG17)
+            x != ./nix/ext/timescaledb-2.9.1.nix &&   # Exclude Apache-only build
+            x != ./nix/ext/timescaledb-tsl-pg15.nix   # Exclude PG15-specific build; use timescaledb.nix (2.20.3) instead
         ) ourExtensions;
 
         # Extensions for OrientDB builds (same as PG17 + orioledb)
